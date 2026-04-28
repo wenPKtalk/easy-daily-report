@@ -3,13 +3,14 @@ package com.topsion.easy_daily_report.infrastructure.config;
 import com.topsion.easy_daily_report.infrastructure.ai.DailyReportAgent;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.GitTool;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.JiraTool;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,21 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class LangChain4jConfig {
+
+    @Bean
+    public ChatModel chatModel(
+            @Value("${langchain4j.open-ai.chat-model.base-url:https://open.bigmodel.cn/api/paas/v4/}") String baseUrl,
+            @Value("${langchain4j.open-ai.chat-model.api-key}") String apiKey,
+            @Value("${langchain4j.open-ai.chat-model.model-name:glm-4-flash}") String modelName,
+            @Value("${langchain4j.open-ai.chat-model.temperature:0.3}") double temperature
+    ) {
+        return OpenAiChatModel.builder()
+                .baseUrl(baseUrl)
+                .apiKey(apiKey)
+                .modelName(modelName)
+                .temperature(temperature)
+                .build();
+    }
 
     @Bean
     public ChatMemory chatMemory(
@@ -51,14 +67,14 @@ public class LangChain4jConfig {
 
     @Bean
     public DailyReportAgent dailyReportAgent(
-            ChatLanguageModel chatLanguageModel,
+            ChatModel chatModel,
             ChatMemory chatMemory,
             ContentRetriever contentRetriever,
             GitTool gitTool,
             JiraTool jiraTool
     ) {
         return AiServices.builder(DailyReportAgent.class)
-                .chatLanguageModel(chatLanguageModel)
+                .chatModel(chatModel)
                 .chatMemory(chatMemory)
                 .contentRetriever(contentRetriever)
                 .tools(gitTool, jiraTool)

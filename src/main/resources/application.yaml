@@ -1,16 +1,17 @@
 spring:
   application:
     name: easy-daily-report
+    config:
+      import: optional:file:.env[.properties]
 
 # LangChain4j - OpenAI Configuration
 langchain4j:
   open-ai:
     chat-model:
+      base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4/}
       api-key: ${OPENAI_API_KEY:demo}
-      model-name: ${LLM_MODEL:gpt-4o}
+      model-name: ${LLM_MODEL:glm-4-flash}
       temperature: 0.3
-      log-requests: true
-      log-responses: true
   chat-memory:
     max-messages: 20
   rag:

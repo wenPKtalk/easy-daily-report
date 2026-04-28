@@ -30,7 +30,7 @@ public class PgVectorConfig {
             @Value("${pgvector.port:5432}") int port,
             @Value("${pgvector.database:daily_report}") String database,
             @Value("${pgvector.user:postgres}") String user,
-            @Value("${pgvector.password:postgres}") String password,
+            @Value("${pgvector.password:123456}") String password,
             @Value("${pgvector.table:report_embeddings}") String table,
             @Value("${pgvector.dimension:384}") int dimension
     ) {

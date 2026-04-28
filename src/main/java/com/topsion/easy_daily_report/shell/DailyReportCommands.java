@@ -4,8 +4,8 @@ import com.topsion.easy_daily_report.application.usecase.GenerateReportUseCase;
 import com.topsion.easy_daily_report.domain.model.DailyReport;
 import com.topsion.easy_daily_report.domain.model.ReportRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.shell.command.annotation.Command;
-import org.springframework.shell.command.annotation.Option;
+import org.springframework.shell.core.command.annotation.Command;
+import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,18 +18,17 @@ import org.springframework.stereotype.Component;
  * - Adapter Pattern — 将 CLI 输入适配为 Domain ReportRequest
  */
 @Component
-@Command(group = "Daily Report")
 @RequiredArgsConstructor
 public class DailyReportCommands {
 
     private final GenerateReportUseCase generateReportUseCase;
 
-    @Command(command = "report generate", description = "生成工作日报")
+    @Command(value = "report generate", group = "Daily Report")
     public String generateReport(
-            @Option(longNames = "commit", shortNames = 'c', description = "Git Commit Hash") String commitHash,
-            @Option(longNames = "range", shortNames = 'r', description = "Commit 范围 (from..to)") String commitRange,
-            @Option(longNames = "jira", shortNames = 'j', description = "Jira Issue Key") String jiraIssueKey,
-            @Option(longNames = "repo", shortNames = 'p', description = "Git 仓库路径") String repoPath
+            @Option(longName = "commit", shortName = 'c', description = "Git Commit Hash") String commitHash,
+            @Option(longName = "range", shortName = 'r', description = "Commit 范围 (from..to)") String commitRange,
+            @Option(longName = "jira", shortName = 'j', description = "Jira Issue Key") String jiraIssueKey,
+            @Option(longName = "repo", shortName = 'p', description = "Git 仓库路径") String repoPath
     ) {
         ReportRequest request = new ReportRequest(
                 commitHash,
@@ -42,7 +41,7 @@ public class DailyReportCommands {
         return report.rawMarkdown();
     }
 
-    @Command(command = "report help", description = "显示日报生成帮助信息")
+    @Command(value = "report help", group = "Daily Report")
     public String help() {
         return """
                 ╔══════════════════════════════════════════════╗

@@ -19,37 +19,43 @@ repositories {
 
 ext {
 	set('springShellVersion', "4.0.1")
-	set('langchain4jVersion', "1.0.0-beta4")
 }
 
 dependencies {
 	// Spring Shell (CLI)
 	implementation 'org.springframework.shell:spring-shell-starter'
 
-	// LangChain4j Core + Spring Boot Integration
-	implementation "dev.langchain4j:langchain4j-spring-boot-starter:${langchain4jVersion}"
-	implementation "dev.langchain4j:langchain4j:${langchain4jVersion}"
+	// ==================== BOM 管理区（推荐写在这里） ====================
 
-	// LangChain4j - LLM Provider (OpenAI compatible)
-	implementation "dev.langchain4j:langchain4j-open-ai-spring-boot-starter:${langchain4jVersion}"
+	// Spring Boot BOM - 显式导入（更清晰）
+	implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
 
-	// LangChain4j - PGVector for RAG
-	implementation "dev.langchain4j:langchain4j-pgvector:${langchain4jVersion}"
+	// LangChain4j BOM
+	implementation platform('dev.langchain4j:langchain4j-bom:1.13.1')
 
-	// LangChain4j - Embedding Model (local)
-	implementation "dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:${langchain4jVersion}"
+	// ==================== LangChain4j 依赖（无需写版本号） ====================
 
-	// Git operations (JGit)
+	implementation 'dev.langchain4j:langchain4j'                          // 核心（稳定版）
+
+	// LangChain4j OpenAI - 直接使用 core 模块，避免 spring-boot-starter 中 RestClient 兼容性问题
+	// (langchain4j-open-ai-spring-boot-starter 依赖 spring-web，而非 web 项目不含该依赖)
+	implementation 'dev.langchain4j:langchain4j-open-ai'
+
+	// 其他模块（pgvector 和 本地 embedding，由 LangChain4j BOM 管理 beta 版本）
+	implementation 'dev.langchain4j:langchain4j-pgvector'
+	implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2'
+
+	// Git operations
 	implementation 'org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r'
 
-	// PostgreSQL Driver
+	// PostgreSQL
 	runtimeOnly 'org.postgresql:postgresql'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
-	// Logging
+	// Logging（通常已被 Spring Boot BOM 管理）
 	implementation 'org.springframework.boot:spring-boot-starter-logging'
 
 	// Test
@@ -62,6 +68,7 @@ dependencies {
 
 dependencyManagement {
 	imports {
+		// Spring Shell BOM
 		mavenBom "org.springframework.shell:spring-shell-dependencies:${springShellVersion}"
 	}
 }
