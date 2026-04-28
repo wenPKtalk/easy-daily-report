@@ -1,0 +1,71 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.topsion'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springShellVersion', "4.0.1")
+	set('langchain4jVersion', "1.0.0-beta4")
+}
+
+dependencies {
+	// Spring Shell (CLI)
+	implementation 'org.springframework.shell:spring-shell-starter'
+
+	// LangChain4j Core + Spring Boot Integration
+	implementation "dev.langchain4j:langchain4j-spring-boot-starter:${langchain4jVersion}"
+	implementation "dev.langchain4j:langchain4j:${langchain4jVersion}"
+
+	// LangChain4j - LLM Provider (OpenAI compatible)
+	implementation "dev.langchain4j:langchain4j-open-ai-spring-boot-starter:${langchain4jVersion}"
+
+	// LangChain4j - PGVector for RAG
+	implementation "dev.langchain4j:langchain4j-pgvector:${langchain4jVersion}"
+
+	// LangChain4j - Embedding Model (local)
+	implementation "dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:${langchain4jVersion}"
+
+	// Git operations (JGit)
+	implementation 'org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r'
+
+	// PostgreSQL Driver
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Logging
+	implementation 'org.springframework.boot:spring-boot-starter-logging'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.shell:spring-shell-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.shell:spring-shell-dependencies:${springShellVersion}"
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

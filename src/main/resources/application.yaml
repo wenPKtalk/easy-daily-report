@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: easy-daily-report
+
+# LangChain4j - OpenAI Configuration
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${OPENAI_API_KEY:demo}
+      model-name: ${LLM_MODEL:gpt-4o}
+      temperature: 0.3
+      log-requests: true
+      log-responses: true
+  chat-memory:
+    max-messages: 20
+  rag:
+    max-results: 3
+
+# PGVector Configuration
+pgvector:
+  host: ${PGVECTOR_HOST:localhost}
+  port: ${PGVECTOR_PORT:5432}
+  database: ${PGVECTOR_DATABASE:daily_report}
+  user: ${PGVECTOR_USER:postgres}
+  password: ${PGVECTOR_PASSWORD:postgres}
+  table: report_embeddings
+  dimension: 384
+
+# Jira Configuration
+jira:
+  base-url: ${JIRA_BASE_URL:https://your-domain.atlassian.net}
+  username: ${JIRA_USERNAME:your-email@example.com}
+  api-token: ${JIRA_API_TOKEN:your-api-token}
+
+# Git Configuration
+git:
+  default-repo-path: ${GIT_REPO_PATH:./}
+
+# Logging
+logging:
+  level:
+    com.topsion.easy_daily_report: DEBUG
+    dev.langchain4j: DEBUG
