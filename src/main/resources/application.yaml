@@ -1,9 +1,6 @@
 spring:
   application:
     name: easy-daily-report
-    config:
-      import: optional:file:.env[.properties]
-
 # LangChain4j - OpenAI Configuration
 langchain4j:
   open-ai:

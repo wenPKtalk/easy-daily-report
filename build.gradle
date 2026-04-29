@@ -15,10 +15,13 @@ java {
 
 repositories {
 	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
 }
 
 ext {
 	set('springShellVersion', "4.0.1")
+	set('springDotEnvVersion', "5.1.0")
 }
 
 dependencies {
@@ -29,10 +32,11 @@ dependencies {
 
 	// Spring Boot BOM - 显式导入（更清晰）
 	implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
-
+	implementation(platform("me.paulschwarz:spring-dotenv-bom:${springDotEnvVersion}"))
 	// LangChain4j BOM
 	implementation platform('dev.langchain4j:langchain4j-bom:1.13.1')
 
+	developmentOnly("me.paulschwarz:springboot4-dotenv:${springDotEnvVersion}")
 	// ==================== LangChain4j 依赖（无需写版本号） ====================
 
 	implementation 'dev.langchain4j:langchain4j'                          // 核心（稳定版）
