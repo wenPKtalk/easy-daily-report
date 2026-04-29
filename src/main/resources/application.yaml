@@ -1,6 +1,9 @@
 spring:
   application:
     name: easy-daily-report
+  shell:
+    interactive:
+      enabled: true
 # LangChain4j - OpenAI Configuration
 langchain4j:
   open-ai:
