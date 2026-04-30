@@ -48,6 +48,9 @@ dependencies {
 	// (langchain4j-open-ai-spring-boot-starter 依赖 spring-web，而非 web 项目不含该依赖)
 	implementation 'dev.langchain4j:langchain4j-open-ai'
 
+	// LangChain4j Ollama - 支持本地模型
+	implementation 'dev.langchain4j:langchain4j-ollama'
+
 	// 其他模块（pgvector 和 本地 embedding，由 LangChain4j BOM 管理 beta 版本）
 	implementation 'dev.langchain4j:langchain4j-pgvector'
 	implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2'

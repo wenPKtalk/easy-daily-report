@@ -8,6 +8,7 @@ import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 /**
  * PGVector 配置（Configuration）
@@ -25,6 +26,7 @@ public class PgVectorConfig {
     }
 
     @Bean
+    @Lazy
     public EmbeddingStore<TextSegment> embeddingStore(
             @Value("${pgvector.host:localhost}") String host,
             @Value("${pgvector.port:5432}") int port,

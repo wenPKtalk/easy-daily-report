@@ -10,12 +10,14 @@
 
 | 特性 | 说明 |
 |------|------|
-| 🤖 **AI 驱动** | ReAct 模式 Agent，自主分析代码和业务上下文 |
+| 🤖 **多模型 AI** | 支持 OpenAI、ZhipuAI、Ollama 等多种 LLM 提供商 |
 | 🔗 **Git 集成** | 自动提取 Commit Diff，分析代码变更 |
 | 📋 **Jira 关联** | 获取 Issue 描述，理解业务背景 |
 | 🧠 **RAG 增强** | 基于 PGVector 检索历史日报，保持风格一致 |
 | 📝 **结构化输出** | 标准化 Markdown 日报格式 |
-| ⚡ **轻量 CLI** | Spring Shell 交互，零配置上手 |
+| ⚡ **轻量 CLI** | Spring Shell + JLine，智能提示与历史记录 |
+| 🎨 **终端增强** | JANSI 支持，跨平台颜色输出 |
+| 🔧 **零配置启动** | 自动加载 .env 文件，无需 export 环境变量 |
 
 ---
 
@@ -81,25 +83,28 @@ docker compose up -d
 
 ### 3. 配置环境变量
 
+项目使用 `spring-dotenv` 自动加载 `.env` 文件，**无需手动 export**。
+
 ```bash
-export OPENAI_API_KEY=sk-your-api-key-here
+# 复制模板并编辑
+cp .env.example .env
+# 修改 .env 中的配置值
 ```
 
-或使用 `.env` 文件（开发时）：
+或在 shell 中临时设置：
 
 ```bash
-# 复制模板（可选）
-cp .env.example .env
-# 编辑 .env 填入你的配置
+export OPENAI_API_KEY=sk-your-api-key-here
+export LLM_BASE_URL=https://api.openai.com/v1  # 可选，支持 ZhipuAI/GLM
 ```
 
 ### 4. 构建 & 运行
 
 ```bash
-# 构建
-./gradlew build
+# 快速启动（推荐）
+./run.sh
 
-# 运行
+# 或使用 Gradle 命令
 ./gradlew bootRun
 ```
 
@@ -179,8 +184,12 @@ shell:> report help
 
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
+| `LLM_PROVIDER` | ❌ | `openai-compatible` | 提供商类型 (openai-compatible/ollama) |
 | `OPENAI_API_KEY` | ✅ | — | LLM API 密钥 |
-| `LLM_MODEL` | ❌ | `gpt-4o` | 模型名称 |
+| `LLM_BASE_URL` | ❌ | `https://open.bigmodel.cn/api/paas/v4/` | API 基础地址 |
+| `LLM_MODEL` | ❌ | `glm-4-flash` | 模型名称 |
+| `LLM_TEMPERATURE` | ❌ | `0.3` | 生成温度 |
+| `LLM_MAX_TOKENS` | ❌ | `2000` | 最大令牌数 |
 | `JIRA_BASE_URL` | ❌ | — | Jira 地址 |
 | `JIRA_USERNAME` | ❌ | — | Jira 用户名 |
 | `JIRA_API_TOKEN` | ❌ | — | Jira API Token |
@@ -192,12 +201,13 @@ shell:> report help
 完整配置见 `src/main/resources/application.yaml`：
 
 ```yaml
-langchain4j:
-  open-ai:
-    chat-model:
-      api-key: ${OPENAI_API_KEY}
-      model-name: ${LLM_MODEL:gpt-4o}
-      temperature: 0.3
+llm:
+  provider: ${LLM_PROVIDER:openai-compatible}  # openai-compatible, ollama
+  base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4/}
+  api-key: ${OPENAI_API_KEY}
+  model-name: ${LLM_MODEL:glm-4-flash}
+  temperature: ${LLM_TEMPERATURE:0.3}
+  max-tokens: ${LLM_MAX_TOKENS:2000}
 ```
 
 ---
@@ -209,7 +219,9 @@ langchain4j:
 | 语言 | Java | 21 |
 | 框架 | Spring Boot | 4.0.6 |
 | CLI | Spring Shell | 4.0.1 |
-| AI | LangChain4j | 1.0.0-beta4 |
+| 终端 | JLine + JANSI | 3.26 + 2.4.1 |
+| 配置 | spring-dotenv | 5.1.0 |
+| AI | LangChain4j | 1.13.1 |
 | 向量库 | PGVector | pg17 |
 | Embedding | All-MiniLM-L6-v2 | — |
 | Git | JGit | 7.2.0 |
@@ -220,17 +232,23 @@ langchain4j:
 ## 🧪 开发指南
 
 ```bash
-# 构建项目
-./gradlew build
+# 快速启动（自动加载 .env，检查配置）
+./run.sh
 
-# 运行测试
-./gradlew test
+# 强制重新构建后启动
+./run.sh -b
 
-# 清理并重建
-./gradlew clean build
+# 跳过检查快速启动
+./run.sh --skip-checks
 
-# 开发模式运行
-./gradlew bootRun --args='--spring.shell.interactive.enabled=true'
+# 查看帮助
+./run.sh --help
+
+# 原始 Gradle 命令
+./gradlew build          # 编译 + 测试
+./gradlew test           # 仅运行测试
+./gradlew bootRun        # 启动应用
+./gradlew clean build    # 清理重建
 ```
 
 ---

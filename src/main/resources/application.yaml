@@ -4,14 +4,35 @@ spring:
   shell:
     interactive:
       enabled: true
-# LangChain4j - OpenAI Configuration
+
+# LLM Configuration - 灵活配置不同 AI 提供商
+llm:
+  # 提供商类型: openai-compatible (默认), ollama
+  provider: ${LLM_PROVIDER:openai-compatible}
+  # API 基础 URL
+  # ZhipuAI: https://open.bigmodel.cn/api/paas/v4/
+  # OpenAI: https://api.openai.com/v1
+  # Ollama: http://localhost:11434/v1
+  base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4/}
+  # API 密钥
+  api-key: ${OPENAI_API_KEY:demo}
+  # 模型名称
+  # ZhipuAI: glm-4-flash, glm-4, glm-4-plus
+  # OpenAI: gpt-4o, gpt-4o-mini
+  # Ollama: llama3, mistral, qwen2
+  model-name: ${LLM_MODEL:glm-4-flash}
+  # 生成温度 (0.0 - 2.0)
+  temperature: ${LLM_TEMPERATURE:0.3}
+  # 最大令牌数
+  max-tokens: ${LLM_MAX_TOKENS:2000}
+  # 超时时间（秒）
+  timeout-seconds: ${LLM_TIMEOUT:60}
+  # 日志记录
+  log-requests: ${LLM_LOG_REQUESTS:true}
+  log-responses: ${LLM_LOG_RESPONSES:true}
+
+# LangChain4j Additional Settings
 langchain4j:
-  open-ai:
-    chat-model:
-      base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4/}
-      api-key: ${OPENAI_API_KEY:demo}
-      model-name: ${LLM_MODEL:glm-4-flash}
-      temperature: 0.3
   chat-memory:
     max-messages: 20
   rag:

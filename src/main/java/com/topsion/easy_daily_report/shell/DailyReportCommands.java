@@ -23,7 +23,7 @@ public class DailyReportCommands {
 
     private final GenerateReportUseCase generateReportUseCase;
 
-    @Command(value = "report generate", group = "Daily Report")
+    @Command(value = "report generate")
     public String generateReport(
             @Option(longName = "commit", shortName = 'c', description = "Git Commit Hash") String commitHash,
             @Option(longName = "range", shortName = 'r', description = "Commit 范围 (from..to)") String commitRange,
@@ -41,7 +41,7 @@ public class DailyReportCommands {
         return report.rawMarkdown();
     }
 
-    @Command(value = "report help", group = "Daily Report")
+    @Command(value = "report help")
     public String help() {
         return """
                 ╔══════════════════════════════════════════════╗

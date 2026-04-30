@@ -8,7 +8,6 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
@@ -16,6 +15,7 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 /**
  * LangChain4j 配置（Configuration）
@@ -31,21 +31,6 @@ import org.springframework.context.annotation.Configuration;
 public class LangChain4jConfig {
 
     @Bean
-    public ChatModel chatModel(
-            @Value("${langchain4j.open-ai.chat-model.base-url:https://open.bigmodel.cn/api/paas/v4/}") String baseUrl,
-            @Value("${langchain4j.open-ai.chat-model.api-key}") String apiKey,
-            @Value("${langchain4j.open-ai.chat-model.model-name:glm-4-flash}") String modelName,
-            @Value("${langchain4j.open-ai.chat-model.temperature:0.3}") double temperature
-    ) {
-        return OpenAiChatModel.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .modelName(modelName)
-                .temperature(temperature)
-                .build();
-    }
-
-    @Bean
     public ChatMemory chatMemory(
             @Value("${langchain4j.chat-memory.max-messages:20}") int maxMessages
     ) {
@@ -53,6 +38,7 @@ public class LangChain4jConfig {
     }
 
     @Bean
+    @Lazy
     public ContentRetriever contentRetriever(
             EmbeddingStore<TextSegment> embeddingStore,
             EmbeddingModel embeddingModel,
