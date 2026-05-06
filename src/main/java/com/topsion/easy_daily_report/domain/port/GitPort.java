@@ -17,4 +17,6 @@ public interface GitPort {
     String getDiff(String repositoryPath, String commitHash);
 
     List<CodeChange> getRecentCommits(String repositoryPath, int count);
+
+    List<CodeChange> getTodayCommits(String repositoryPath);
 }

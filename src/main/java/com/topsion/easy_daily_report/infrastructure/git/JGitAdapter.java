@@ -17,8 +17,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -106,6 +108,40 @@ public class JGitAdapter implements GitPort {
         } catch (Exception e) {
             log.error("获取最近 commits 失败", e);
             throw new RuntimeException("获取最近 commits 失败", e);
+        }
+    }
+
+    @Override
+    public List<CodeChange> getTodayCommits(String repositoryPath) {
+        try (Repository repo = openRepository(repositoryPath)) {
+            try (Git git = new Git(repo)) {
+                // 计算今天的时间范围
+                LocalDate today = LocalDate.now();
+                LocalDateTime startOfDay = today.atStartOfDay();
+                LocalDateTime startOfTomorrow = today.plusDays(1).atStartOfDay();
+
+                long startEpoch = startOfDay.atZone(ZoneId.systemDefault()).toEpochSecond();
+                long endEpoch = startOfTomorrow.atZone(ZoneId.systemDefault()).toEpochSecond();
+
+                log.info("获取今天的提交: {} 至 {}", startOfDay, startOfTomorrow);
+
+                // 遍历所有提交，筛选今天内的
+                Iterable<RevCommit> commits = git.log().call();
+                List<CodeChange> changes = new ArrayList<>();
+
+                for (RevCommit commit : commits) {
+                    long commitTime = commit.getCommitTime();
+                    if (commitTime >= startEpoch && commitTime < endEpoch) {
+                        changes.add(toCodeChange(commit, null));
+                    }
+                }
+
+                log.info("找到 {} 条今天的提交", changes.size());
+                return changes;
+            }
+        } catch (Exception e) {
+            log.error("获取今天的提交失败", e);
+            throw new RuntimeException("获取今天的提交失败", e);
         }
     }
 
