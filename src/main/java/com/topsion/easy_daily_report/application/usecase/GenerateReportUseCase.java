@@ -19,11 +19,12 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GenerateReportUseCase {
+public class GenerateReportUseCase implements GenerateAgent{
 
     private final ReportGenerator reportGenerator;
     private final ReportStore reportStore;
 
+    @Override
     public DailyReport execute(ReportRequest request) {
         log.info("开始生成日报，commit: {}, jira: {}",
                 request.commitHash(), request.jiraIssueKey());

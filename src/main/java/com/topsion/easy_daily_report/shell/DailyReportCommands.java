@@ -11,15 +11,12 @@ import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Spring Shell 命令层（Interface Adapter）
- *
  * 负责接收用户 CLI 输入，转换为 Domain 对象，委托给 UseCase 执行
- *
  * 设计模式：
  * - Facade Pattern — 简化复杂系统的入口
  * - Adapter Pattern — 将 CLI 输入适配为 Domain ReportRequest
