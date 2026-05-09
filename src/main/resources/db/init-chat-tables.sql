@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     user_id         VARCHAR(255),
     current_mode    VARCHAR(50),
     mode_overridden BOOLEAN DEFAULT FALSE,
-    context_json    TEXT,
+    context_json    JSONB,
     created_at      TIMESTAMP,
     last_active_at  TIMESTAMP
 );

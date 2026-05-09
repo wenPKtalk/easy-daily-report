@@ -35,7 +35,7 @@ public class ChatSessionRepository {
             """
             INSERT INTO chat_sessions
                 (session_id, user_id, current_mode, mode_overridden, context_json, created_at, last_active_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (session_id) DO UPDATE SET
                 current_mode    = EXCLUDED.current_mode,
                 mode_overridden = EXCLUDED.mode_overridden,
