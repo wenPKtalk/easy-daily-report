@@ -1,5 +1,9 @@
 # Multiple Agent 架构设计方案
 
+> **实现状态（MVP1）：** ✅ **方案二（纯 LangChain4j 手动编排）已实现。**
+> 核心类：`MultiAgentOrchestrator`（`application/usecase/`），Sub-Agent 接口在 `agent/subagents/`，Bean 装配在 `MultiAgentConfig`。
+> 方案一（`langchain4j-agentic` CoordinatorAgent）列为 `AgentLevel.COORDINATOR_AGENT`，预留供未来迭代。
+
 ## 一、依赖更新
 
 ### 1. 添加 langchain4j-agentic 依赖

@@ -1,5 +1,8 @@
 # 单 Agent vs Multiple Agent 架构对比
 
+> **实现状态（MVP1）：** ✅ Multiple Agent 方案（手动编排，方案二）已实现。
+> 实现类：`MultiAgentOrchestrator`，策略接口：`GenerateAgent`。
+
 ## 一、架构对比
 
 ### 原有架构：单 Agent (ReAct)
@@ -338,4 +341,4 @@ Jira 分析部分 (70 tokens) → JiraAnalyzerAgent
 | 可测试性 | ⭐⭐ | ⭐⭐⭐⭐⭐ | **150%** ↑ |
 | 扩展性 | ⭐⭐ | ⭐⭐⭐⭐⭐ | **150%** ↑ |
 
-**推荐：** 对于你的项目（easy-daily-report），**强烈推荐使用 Multiple Agent 架构**。
+**已实现（MVP1）：** `MultiAgentOrchestrator` 采用手动编排方案，通过 `GenerateAgent` 策略接口与单 Agent 路径并存。`AgentRouter` 路由逻辑待完善后可在运行时动态切换两种策略。

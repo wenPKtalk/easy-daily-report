@@ -23,6 +23,8 @@
 
 ## 🏗️ 架构概览
 
+项目采用 **DDD 六边形架构** + **策略模式**，支持两种 Agent 生成策略：
+
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
 │   Git Repo  │     │  Jira API   │     │      LLM (AI)       │
@@ -31,27 +33,47 @@
        ▼                   ▼                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  Infrastructure Layer                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐ │
 │  │ JGitAdapter │  │JiraRestAdapter│  │ AgentReportGenerator│ │
-│  └─────────────┘  └─────────────┘  └──────────┬──────────┘ │
-│                                               │ DailyReportAgent
-│                              ┌────────────────┼────────────┐
-│                              │   Tools         │  RAG        │
-│                              │ ┌────────┐   │  ┌────────┐  │
-│                              │ │GitTool │   │  │PGVector│  │
-│                              │ │JiraTool│   │  │ Store  │  │
-│                              │ └────────┘   │  └────────┘  │
-└──────────────────────────────┼──────────────┴──────────────┘
+│  └─────────────┘  └──────────────┘  └─────────┬──────────┘ │
+│                                     DailyReportAgent (单 Agent ReAct)
+└──────────────────────────────────────────────────────────────┘
                                │
 ┌──────────────────────────────┼──────────────────────────────┐
-│          Application Layer    │                              │
-│              GenerateReportUseCase                          │
-└──────────────────────────────┼──────────────────────────────┘
+│      Application Layer (策略模式 GenerateAgent 接口)         │
+│                                                              │
+│  ┌──────────────────────┐    ┌──────────────────────────┐  │
+│  │ GenerateReportUseCase│    │  MultiAgentOrchestrator  │  │
+│  │  (单 Agent 策略)      │    │  (并行 Multi-Agent 策略)  │  │
+│  └──────────────────────┘    └──────────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
                                │
 ┌──────────────────────────────┼──────────────────────────────┐
 │            Shell Layer        │                              │
 │      DailyReportCommands      │  ← 你的 CLI 入口            │
 └──────────────────────────────┴──────────────────────────────┘
+```
+
+### 两种 Agent 策略对比
+
+| 策略 | 实现类 | 特点 |
+|------|--------|------|
+| 单 Agent (ReAct) | `GenerateReportUseCase` | 简单直接，单 LLM 循环推理，含 RAG |
+| 多 Agent 并行 | `MultiAgentOrchestrator` | Git/Jira 分析并行执行，速度提升约 38% |
+
+**Multi-Agent 数据流：**
+```
+CommitHash + JiraKey
+       │
+       ├──────────────────────────────┐
+       ▼                              ▼
+GitDiffAnalyzerAgent          JiraAnalyzerAgent
+  (并行，分析代码变更)           (并行，分析业务背景)
+       │                              │
+       └──────────────┬───────────────┘
+                      ▼
+             ReportGeneratorAgent
+              (整合结果，生成 Markdown 日报)
 ```
 
 ---
@@ -118,7 +140,20 @@ export LLM_BASE_URL=https://api.openai.com/v1  # 可选，支持 ZhipuAI/GLM
 shell:>
 ```
 
-### 生成日报
+### 生成今日日报（推荐）
+
+```bash
+# 自动收集今天所有提交，生成日报
+shell:> report generate-today
+
+# 附加 Jira Issue
+shell:> report generate-today -j PROJ-123
+
+# 指定仓库路径
+shell:> report generate-today -j PROJ-123 -p /path/to/repo
+```
+
+### 基于指定 Commit 生成
 
 ```bash
 # 基于单个 commit + Jira Issue
@@ -137,7 +172,7 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 |------|--------|--------|------|
 | Commit Hash | `-c` | `--commit` | Git commit hash |
 | Commit Range | `-r` | `--range` | Commit 范围 (from..to) |
-| Jira Issue | `-j` | `--jira` | Jira Issue Key |
+| Jira Issue | `-j` | `--jira` | Jira Issue Key（可选） |
 | Repo Path | `-p` | `--repo` | Git 仓库路径 |
 
 ### 查看帮助
@@ -263,6 +298,10 @@ llm:
 ## 🗺️ 路线图
 
 - [x] MVP: Git + Jira + OpenAI + PGVector + Spring Shell
+- [x] MVP1: Sample Multiple Agent 架构 + 策略模式 (`GenerateAgent` 接口)
+- [x] `report generate-today` 命令（自动收集当天所有提交）
+- [ ] `AgentRouter` 策略路由（运行时动态切换单/多 Agent）
+- [ ] 支持 CoordinatorAgent 模式（Master + Sub-Agents）
 - [ ] 支持 Ollama 本地模型
 - [ ] 多语言日报输出
 - [ ] 周报/月报聚合
