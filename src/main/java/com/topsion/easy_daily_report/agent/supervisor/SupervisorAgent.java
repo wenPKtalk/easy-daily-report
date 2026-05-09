@@ -11,7 +11,7 @@ public interface SupervisorAgent {
 
         你的职责：
         1. 理解用户的自然语言意图
-        2. 从对话上下文中提取关键信息（commitHash、jiraKey、repoPath）
+        2. 从对话上下文中提取关键信息（commitHash、jiraKey）
         3. 决定路由策略：SINGLE 或 SAMPLE_MULTIPLE
         4. 对追问（如"改成英文"、"展开风险点"）直接基于上下文回答，不调用子 Agent
         5. 若信息不足，向用户提问补全
