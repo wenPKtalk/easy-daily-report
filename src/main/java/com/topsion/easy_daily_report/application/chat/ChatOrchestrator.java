@@ -7,7 +7,6 @@ import com.topsion.easy_daily_report.application.usecase.AgentRouter;
 import com.topsion.easy_daily_report.domain.model.DailyReport;
 import com.topsion.easy_daily_report.domain.model.ReportRequest;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.SessionContextTool;
-import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,20 +18,17 @@ public class ChatOrchestrator {
     private final SupervisorAgent supervisorAgent;
     private final AgentRouter agentRouter;
     private final SessionContextTool sessionContextTool;
-    private final ChatSessionRepository sessionRepository;
     private final String defaultRepoPath;
 
     public ChatOrchestrator(
             SupervisorAgent supervisorAgent,
             AgentRouter agentRouter,
             SessionContextTool sessionContextTool,
-            ChatSessionRepository sessionRepository,
             @Value("${git.default-repo-path:./}") String defaultRepoPath) {
 
         this.supervisorAgent = supervisorAgent;
         this.agentRouter = agentRouter;
         this.sessionContextTool = sessionContextTool;
-        this.sessionRepository = sessionRepository;
         this.defaultRepoPath = defaultRepoPath;
     }
 

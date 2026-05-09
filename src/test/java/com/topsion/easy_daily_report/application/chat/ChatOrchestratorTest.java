@@ -9,7 +9,6 @@ import com.topsion.easy_daily_report.application.usecase.GenerateAgent;
 import com.topsion.easy_daily_report.domain.model.DailyReport;
 import com.topsion.easy_daily_report.domain.model.ReportRequest;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.SessionContextTool;
-import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,6 @@ class ChatOrchestratorTest {
     @Mock private SupervisorAgent supervisorAgent;
     @Mock private AgentRouter agentRouter;
     @Mock private SessionContextTool sessionContextTool;
-    @Mock private ChatSessionRepository sessionRepository;
     @Mock private GenerateAgent generateAgent;
 
     private ChatOrchestrator orchestrator;
@@ -41,7 +39,7 @@ class ChatOrchestratorTest {
     @BeforeEach
     void setUp() {
         orchestrator = new ChatOrchestrator(
-            supervisorAgent, agentRouter, sessionContextTool, sessionRepository, "./"
+            supervisorAgent, agentRouter, sessionContextTool, "./"
         );
         baseSession = new ChatSession(
             UUID.randomUUID().toString(), "user@test.com",
