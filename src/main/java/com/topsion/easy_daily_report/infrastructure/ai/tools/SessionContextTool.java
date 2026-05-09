@@ -32,15 +32,15 @@ public class SessionContextTool {
 
     @Tool("在当前会话上下文中更新或新增一个键值对，例如 updateContext('commitHash', 'abc123')")
     public void updateContext(String key, String value) {
-        ChatSession session = currentSession.get();
-        if (session == null) return;
-        Map<String, String> next = new HashMap<>(session.context());
-        next.put(key, value);
-        ChatSession updated = new ChatSession(
-            session.sessionId(), session.userId(), session.currentMode(), session.modeOverridden(),
-            Collections.unmodifiableMap(next), session.history(),
-            session.createdAt(), LocalDateTime.now()
-        );
-        currentSession.set(updated);
+        currentSession.updateAndGet(session -> {
+            if (session == null) return null;
+            Map<String, String> next = new HashMap<>(session.context());
+            next.put(key, value);
+            return new ChatSession(
+                session.sessionId(), session.userId(), session.currentMode(), session.modeOverridden(),
+                Collections.unmodifiableMap(next), session.history(),
+                session.createdAt(), LocalDateTime.now()
+            );
+        });
     }
 }
