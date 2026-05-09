@@ -4,7 +4,11 @@ import com.topsion.easy_daily_report.agent.supervisor.SupervisorDecision;
 import com.topsion.easy_daily_report.application.usecase.AgentLevel;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public record ChatSession(
@@ -12,6 +16,11 @@ public record ChatSession(
     Map<String, String> context, List<ConversationTurn> history,
     LocalDateTime createdAt, LocalDateTime lastActiveAt
 ) {
+    public ChatSession {
+        context = Map.copyOf(context);
+        history = List.copyOf(history);
+    }
+
     public ChatSession withMode(AgentLevel mode, boolean overridden) {
         return new ChatSession(sessionId, userId, mode, overridden, context, history, createdAt, LocalDateTime.now());
     }
