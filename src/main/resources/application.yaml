@@ -4,6 +4,15 @@ spring:
   shell:
     interactive:
       enabled: true
+  datasource:
+    url: jdbc:postgresql://${PGVECTOR_HOST:localhost}:${PGVECTOR_PORT:5432}/${PGVECTOR_DATABASE:daily_report}
+    username: ${PGVECTOR_USER:postgres}
+    password: ${PGVECTOR_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      schema-locations: classpath:db/init-chat-tables.sql
+      mode: always
 
 # LLM Configuration - 灵活配置不同 AI 提供商
 llm:

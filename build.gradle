@@ -67,11 +67,14 @@ dependencies {
 
 	// Logging（通常已被 Spring Boot BOM 管理）
 	implementation 'org.springframework.boot:spring-boot-starter-logging'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.shell:spring-shell-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }

@@ -1,5 +1,6 @@
 package com.topsion.easy_daily_report.infrastructure.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
 import org.springframework.context.annotation.Bean;
@@ -8,11 +9,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ShellConfig {
+
     @Bean
     public PromptProvider promptProvider() {
         return () -> new AttributedString(
                 "Topsion > ",
                 AttributedStyle.BOLD.foreground(AttributedStyle.GREEN)
         );
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
