@@ -26,7 +26,17 @@ public class ChatSessionRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String SESSION_ACTIVE_HOURS = "24";
+    private static final int SESSION_ACTIVE_HOURS = 24;
+
+    private static final String FIND_ACTIVE_SESSION_SQL = """
+        SELECT session_id, user_id, current_mode, mode_overridden, context_json,
+               created_at, last_active_at
+        FROM chat_sessions
+        WHERE user_id = ?
+          AND last_active_at > NOW() - (? * INTERVAL '1 hour')
+        ORDER BY last_active_at DESC
+        LIMIT 1
+        """;
 
     public void save(ChatSession session) {
         String contextJson = toJson(session.context());
@@ -57,17 +67,10 @@ public class ChatSessionRepository {
     public Optional<ChatSession> findActiveSession(String userId) {
         try {
             ChatSession session = jdbcTemplate.queryForObject(
-                """
-                SELECT session_id, user_id, current_mode, mode_overridden, context_json,
-                       created_at, last_active_at
-                FROM chat_sessions
-                WHERE user_id = ?
-                  AND last_active_at > NOW() - INTERVAL '%s hours'
-                ORDER BY last_active_at DESC
-                LIMIT 1
-                """.formatted(SESSION_ACTIVE_HOURS),
+                FIND_ACTIVE_SESSION_SQL,
                 sessionRowMapper(),
-                new Object[]{userId}
+                userId,
+                SESSION_ACTIVE_HOURS
             );
             return Optional.ofNullable(session);
         } catch (EmptyResultDataAccessException e) {

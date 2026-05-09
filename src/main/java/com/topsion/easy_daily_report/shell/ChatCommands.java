@@ -7,8 +7,7 @@ import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.jline.reader.LineReader;
 import org.jline.reader.UserInterruptException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.stereotype.Component;
 
@@ -24,19 +23,15 @@ public class ChatCommands {
 
     private final ChatOrchestrator chatOrchestrator;
     private final ChatSessionRepository sessionRepository;
-    private LineReader lineReader;
+    private final ObjectProvider<LineReader> lineReaderProvider;
 
     public ChatCommands(
             ChatOrchestrator chatOrchestrator,
-            ChatSessionRepository sessionRepository) {
+            ChatSessionRepository sessionRepository,
+            ObjectProvider<LineReader> lineReaderProvider) {
         this.chatOrchestrator = chatOrchestrator;
         this.sessionRepository = sessionRepository;
-    }
-
-    @Autowired
-    @Lazy
-    public void setLineReader(LineReader lineReader) {
-        this.lineReader = lineReader;
+        this.lineReaderProvider = lineReaderProvider;
     }
 
     @Command(value = "chat")
@@ -50,6 +45,11 @@ public class ChatCommands {
     }
 
     void startChatLoop(AgentLevel forcedMode) {
+        LineReader lineReader = lineReaderProvider.getIfAvailable();
+        if (lineReader == null) {
+            throw new IllegalStateException("LineReader is not available in this environment");
+        }
+
         String userId = System.getProperty("user.name", "unknown");
         ChatSession session = resolveSession(userId, forcedMode);
         printWelcomeBanner(session);
@@ -71,7 +71,15 @@ public class ChatCommands {
                     return;
                 }
                 String response = buildBuiltinResponse(input, session);
-                session = handleBuiltinCommand(input, session);
+                ChatSession updatedSession = handleBuiltinCommand(input, session);
+                if (updatedSession != session) {
+                    try {
+                        sessionRepository.save(updatedSession);
+                    } catch (Exception e) {
+                        log.warn("Failed to persist session after builtin command: {}", e.getMessage());
+                    }
+                }
+                session = updatedSession;
                 System.out.println("assistant> " + response);
             } else {
                 String response = chatOrchestrator.handleInput(input, session);
@@ -79,7 +87,11 @@ public class ChatCommands {
                 session = session
                     .appendTurn("user", input)
                     .appendTurn("assistant", response);
-                sessionRepository.save(session);
+                try {
+                    sessionRepository.save(session);
+                } catch (Exception e) {
+                    log.warn("Failed to persist session turn, continuing in-memory: {}", e.getMessage());
+                }
             }
         }
     }
@@ -183,7 +195,11 @@ public class ChatCommands {
     }
 
     private void saveAndExit(ChatSession session) {
-        sessionRepository.save(session);
+        try {
+            sessionRepository.save(session);
+        } catch (Exception e) {
+            log.warn("Failed to persist session on exit: {}", e.getMessage());
+        }
         System.out.println("assistant> 会话已保存。下次输入 chat 可继续。");
     }
 

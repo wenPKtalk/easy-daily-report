@@ -40,12 +40,13 @@ public class ChatOrchestrator {
         );
 
         ChatSession updatedSession = sessionContextTool.getUpdatedSession();
+        sessionContextTool.clearSession();
 
         return switch (decision.intent()) {
             case FOLLOW_UP -> decision.directResponse();
             case CLARIFY -> decision.clarifyQuestion();
             case GENERATE_REPORT -> executeReport(decision, updatedSession);
-            case MODE_SWITCH -> "Mode switch handled by caller.";
+            case MODE_SWITCH -> "模式切换已处理。";
         };
     }
 

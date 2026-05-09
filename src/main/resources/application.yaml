@@ -37,8 +37,8 @@ llm:
   # 超时时间（秒）
   timeout-seconds: ${LLM_TIMEOUT:60}
   # 日志记录
-  log-requests: ${LLM_LOG_REQUESTS:true}
-  log-responses: ${LLM_LOG_RESPONSES:true}
+  log-requests: ${LLM_LOG_REQUESTS:false}
+  log-responses: ${LLM_LOG_RESPONSES:false}
 
 # LangChain4j Additional Settings
 langchain4j:
@@ -71,4 +71,4 @@ git:
 logging:
   level:
     com.topsion.easy_daily_report: DEBUG
-    dev.langchain4j: DEBUG
+    dev.langchain4j: INFO
