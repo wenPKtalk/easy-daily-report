@@ -14,8 +14,14 @@ docker compose up -d pgvector
 
 这将自动：
 1. 创建 PostgreSQL 实例
-2. 启用 pgvector 扩展
-3. 创建 `daily_report` 数据库
+2. 创建 `daily_report` 数据库（来自 `POSTGRES_DB` 环境变量）
+3. 通过挂载 `db/init/` → `/docker-entrypoint-initdb.d/`，按文件名顺序执行：
+   - `01-init-database.sql` — 启用 `pgvector` / `pgcrypto` 扩展
+   - `02-create-tables.sql` — 业务表（`daily_reports`、`code_changes`）
+   - `03-create-chat-tables.sql` — 对话表（`chat_sessions`、`conversation_turns`）
+
+> 注意：`/docker-entrypoint-initdb.d/` 仅在容器**首次创建数据卷**时执行。
+> 如需重新初始化，请先 `docker compose down -v` 删除数据卷再启动。
 
 ## 手动初始化
 
@@ -69,6 +75,17 @@ WHERE table_schema = 'public';
 |------|------|------|
 | `daily_reports` | 日报元数据 | 补充业务字段，非向量查询 |
 | `code_changes` | 代码变更缓存 | 可选，缓存 Git 数据减少 API 调用 |
+
+### 对话模式表（chat mode）
+
+| 表名 | 说明 | 关键字段 |
+|------|------|--------|
+| `chat_sessions` | 持续对话会话 | `session_id` PK, `current_mode`, `mode_overridden`, `context_json (JSONB)`, `last_active_at` |
+| `conversation_turns` | 每轮对话消息 | `id BIGSERIAL`, `session_id` FK, `role`, `content`, `created_at` |
+
+索引：
+- `idx_chat_sessions_user_active (user_id, last_active_at DESC)` — 按用户拉取最近活跃会话
+- `idx_conversation_turns_session (session_id, created_at DESC)` — 按会话拉取历史轮次
 
 ## 配置
 
