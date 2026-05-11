@@ -54,6 +54,24 @@ class ChatSessionRepositoryTest {
     }
 
     @Test
+    @DisplayName("save SQL casts context_json bind to jsonb (regression guard)")
+    void save_castsContextJsonToJsonb() {
+        ChatSession session = new ChatSession(
+            UUID.randomUUID().toString(), "user@test.com",
+            AgentLevel.SINGLE, false,
+            Map.of("k", "v"),
+            List.of(), LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        repository.save(session);
+
+        verify(jdbcTemplate).update(
+            contains("?::jsonb"),
+            any(), any(), any(), any(), any(), any(), any()
+        );
+    }
+
+    @Test
     @DisplayName("findActiveSession returns empty Optional when query returns null")
     void findActiveSession_noResult_returnsEmpty() {
         when(jdbcTemplate.queryForObject(

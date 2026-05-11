@@ -41,11 +41,14 @@ public class ChatSessionRepository {
     public void save(ChatSession session) {
         String contextJson = toJson(session.context());
 
+        // context_json is JSONB; the JDBC driver sends Strings as VARCHAR,
+        // and PostgreSQL refuses the implicit varchar→jsonb conversion.
+        // The ?::jsonb cast is load-bearing — do not remove.
         jdbcTemplate.update(
             """
             INSERT INTO chat_sessions
                 (session_id, user_id, current_mode, mode_overridden, context_json, created_at, last_active_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?)
             ON CONFLICT (session_id) DO UPDATE SET
                 current_mode    = EXCLUDED.current_mode,
                 mode_overridden = EXCLUDED.mode_overridden,
