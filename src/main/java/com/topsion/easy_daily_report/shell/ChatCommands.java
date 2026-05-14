@@ -76,6 +76,7 @@ public class ChatCommands {
                     try {
                         sessionRepository.save(updatedSession);
                     } catch (Exception e) {
+                        log.error("Save session happened error", e);
                         log.warn("Failed to persist session after builtin command: {}", e.getMessage());
                     }
                 }
