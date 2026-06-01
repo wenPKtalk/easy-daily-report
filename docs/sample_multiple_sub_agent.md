@@ -463,3 +463,39 @@ class MultiAgentOrchestratorTests {
 - ✅ 更好的性能（并行执行）
 - ✅ 更强的扩展性
 - ✅ 更精确的 AI 输出控制
+
+---
+
+## 附录：COORDINATOR_AGENT 实施说明（2026-05-28）
+
+蓝图中方案一的 CoordinatorAgent（Master/Sub）已在 `AgentLevel.COORDINATOR_AGENT` 下落地。实施时与蓝图存在三个明确偏差，记录如下，便于后续维护者理解。
+
+### D1 — 选用纯 `AiServices` + 自定义 `@Tool`，未引入 `langchain4j-agentic`
+
+- 当前 BOM 没有 agentic 依赖，且既有 `SupervisorAgent`、3 个 sub-agent 全部采用纯 `AiServices.builder()` 模式
+- 蓝图本身在 §依赖更新（lines 28-30）也明确允许这种回退："如果 `langchain4j-agentic` 在 1.13.1 版本中不可用 … 可使用纯 langchain4j 实现类似架构"
+- 实际落地：`infrastructure/ai/tools/SubAgentDelegationTool` 将 sub-agent 包装为 4 个 `@Tool` 方法，`CoordinatorAgent` 通过 `AiServices.builder().tools(delegationTool)` 装配
+
+### D2 — RAG 作为 `@Tool retrieveSimilarReports`，**未**新建 `RAGRetrieverAgent`
+
+- 蓝图 §RAG Retriever Sub-Agent（lines 102-112）把 RAG 设计为独立 AiService
+- 实际：`ReportStore.searchSimilar(query, maxResults): List<String>` 已是干净查询接口，不需要再套一层 LLM 推理 — 直接以 `@Tool` 包装即可，逻辑简一个数量级
+- 这是 COORDINATOR_AGENT 区别于 SAMPLE_MULTIPLE 的核心差异化能力（SAMPLE_MULTIPLE 不消费 RAG）
+
+### D3 — 每个 DelegationTool 内部 fail-soft，仅 `composeFinalReport` 失败上浮
+
+- 蓝图未明确错误处理；既有 `MultiAgentOrchestrator.createErrorGitAnalysis()` / `createErrorJiraAnalysis()` 已建立 per-call fail-soft 模板
+- 实际：`analyzeGitChanges` / `analyzeJiraIssue` / `retrieveSimilarReports` 异常时返回降级 JSON 或空字符串，让 Coordinator 自行决定后续；`composeFinalReport`（终态）失败直接抛出
+- ReAct 循环因此不会因为 Jira 不可达、RAG 故障等局部失败而整体中断
+
+### 落地清单
+
+| 新增/修改 | 路径 |
+|---|---|
+| 新增 | `infrastructure/ai/tools/SubAgentDelegationTool.java` — 4 个 `@Tool` 方法 |
+| 新增 | `agent/coordinator/CoordinatorAgent.java` — AiService 接口 + SystemMessage |
+| 新增 | `infrastructure/config/CoordinatorConfig.java` — Bean 装配 |
+| 新增 | `application/usecase/CoordinatorOrchestrator.java` — 实现 `GenerateAgent`，调 `reportStore.save()` |
+| 修改 | `application/usecase/AgentRouter.java` — `COORDINATOR_AGENT` 分支接到 `CoordinatorOrchestrator` |
+| 修改 | `shell/DailyReportCommands.java` — 注入 `AgentRouter`、新增 `--level` 选项 |
+| 新增/更新测试 | `AgentRouterTest`、`CoordinatorOrchestratorTest`、`SubAgentDelegationToolTest` |

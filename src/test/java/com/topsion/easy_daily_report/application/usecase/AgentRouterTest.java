@@ -8,7 +8,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
 class AgentRouterTest {
@@ -19,11 +18,14 @@ class AgentRouterTest {
     @Mock
     private MultiAgentOrchestrator multiAgent;
 
+    @Mock
+    private CoordinatorOrchestrator coordinatorAgent;
+
     private AgentRouter router;
 
     @BeforeEach
     void setUp() {
-        router = new AgentRouter(singleAgent, multiAgent);
+        router = new AgentRouter(singleAgent, multiAgent, coordinatorAgent);
     }
 
     @Test
@@ -41,9 +43,9 @@ class AgentRouterTest {
     }
 
     @Test
-    @DisplayName("route(COORDINATOR_AGENT) throws UnsupportedOperationException")
-    void route_coordinatorAgent_throws() {
-        assertThatThrownBy(() -> router.route(AgentLevel.COORDINATOR_AGENT))
-            .isInstanceOf(UnsupportedOperationException.class);
+    @DisplayName("route(COORDINATOR_AGENT) returns CoordinatorOrchestrator")
+    void route_coordinatorAgent_returnsCoordinator() {
+        GenerateAgent agent = router.route(AgentLevel.COORDINATOR_AGENT);
+        assertThat(agent).isSameAs(coordinatorAgent);
     }
 }

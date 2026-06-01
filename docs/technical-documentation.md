@@ -162,6 +162,50 @@ Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能�
         DailyReport.fromMarkdown()
 ```
 
+### 2.4 数据流 C：Coordinator Agent (Master/Sub 动态调度)
+
+`--level COORDINATOR_AGENT` 启用。与 B 的关键差异：调用顺序、是否检索 RAG、是否跳过某 sub-agent，全部由 `CoordinatorAgent` 在 ReAct 循环里自行决策；Java 层只做请求转换和结果落库。
+
+```
+用户输入 CLI 命令 (--level COORDINATOR_AGENT)
+       │
+       ▼
+┌──────────────────────────┐
+│ CoordinatorOrchestrator  │  极薄编排层
+└────────────┬─────────────┘
+             │ coordinate(commitHash, jiraKey, todayDate)
+             ▼
+┌──────────────────────────────────────┐
+│  CoordinatorAgent (Master, ReAct)    │
+│  - SystemMessage 明示工具语义和调用约束│
+│  - LLM 自主决定调用顺序和参数         │
+└────────────┬─────────────────────────┘
+             │ @Tool 调度
+             ▼
+┌──────────────────────────────────────┐
+│  SubAgentDelegationTool              │
+│   ├─ analyzeGitChanges(commitHash)   │ → GitDiffAnalyzerAgent (fail-soft JSON)
+│   ├─ analyzeJiraIssue(jiraKey)       │ → JiraAnalyzerAgent     (fail-soft JSON)
+│   ├─ retrieveSimilarReports(query)   │ → ReportStore.searchSimilar  (RAG, 可选)
+│   └─ composeFinalReport(...)         │ → ReportGeneratorAgent  (终态，失败上浮)
+└────────────┬─────────────────────────┘
+             ▼
+        Markdown 日报
+             │
+             ▼
+        DailyReport.fromMarkdown() → reportStore.save()
+```
+
+**与方案 B 的对比要点：**
+
+| 维度 | SAMPLE_MULTIPLE (B) | COORDINATOR_AGENT (C) |
+|---|---|---|
+| 编排者 | Java `CompletableFuture` | LLM ReAct |
+| 顺序 | 固定：Git ∥ Jira → Generator | 动态：LLM 决定，可乱序、可跳步 |
+| RAG | 不使用 | 通过 `retrieveSimilarReports` 工具按需检索 |
+| 失败处理 | sub-agent 内 try/catch 返回 JSON | DelegationTool 内 fail-soft；终态 `composeFinalReport` 失败上浮 |
+| 落库 | 不存 | 与 SINGLE 对齐，`reportStore.save()` |
+
 ---
 
 ## 3. 技术栈

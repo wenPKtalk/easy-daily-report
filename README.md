@@ -174,6 +174,24 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 | Commit Range | `-r` | `--range` | Commit 范围 (from..to) |
 | Jira Issue | `-j` | `--jira` | Jira Issue Key（可选） |
 | Repo Path | `-p` | `--repo` | Git 仓库路径 |
+| Agent Level | `-l` | `--level` | Agent 级别（可选，默认 `SINGLE`） |
+
+### Agent 级别（`--level`）
+
+`generate` / `generate-today` 都接受 `--level`，对应三种生成策略：
+
+| Level | 说明 |
+|---|---|
+| `SINGLE` | 单 Agent + ReAct 循环（默认），内置 RAG，最简洁 |
+| `SAMPLE_MULTIPLE` | 并行多 Agent，Java 层用 `CompletableFuture` 静态编排 Git/Jira 分析后合成 |
+| `COORDINATOR_AGENT` | Master/Sub 多 Agent，LLM 通过 ReAct 动态决定调用顺序，可主动检索历史日报 |
+
+示例：
+
+```bash
+shell:> report generate -c abc1234 -j PROJ-123 --level COORDINATOR_AGENT
+shell:> report generate-today -j PROJ-123 -l SAMPLE_MULTIPLE
+```
 
 ### 查看帮助
 

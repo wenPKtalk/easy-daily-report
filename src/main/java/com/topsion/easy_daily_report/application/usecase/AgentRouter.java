@@ -9,13 +9,13 @@ public class AgentRouter {
 
     private final GenerateReportUseCase singleAgent;
     private final MultiAgentOrchestrator multiAgent;
+    private final CoordinatorOrchestrator coordinatorAgent;
 
     public GenerateAgent route(AgentLevel level) {
         return switch (level) {
             case SINGLE -> singleAgent;
             case SAMPLE_MULTIPLE -> multiAgent;
-            case COORDINATOR_AGENT ->
-                throw new UnsupportedOperationException("COORDINATOR_AGENT is reserved for MVP2");
+            case COORDINATOR_AGENT -> coordinatorAgent;
         };
     }
 }

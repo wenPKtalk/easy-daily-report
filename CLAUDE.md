@@ -38,26 +38,28 @@ Copy `.env.example` to `.env` — the app auto-loads it via `spring-dotenv`, no 
 DDD hexagonal architecture with five layers:
 
 ```
-shell/          → Spring Shell CLI: report generate / report generate-today
-application/    → Strategy pattern: GenerateAgent interface + 2 implementations + AgentRouter
-agent/subagents → LangChain4j AiService interfaces for Multi-Agent sub-agents
-domain/         → Models (record types) + port interfaces (zero external deps)
-infrastructure/ → Adapters: JGit, Jira REST, LangChain4j AI, PGVector + config beans
+shell/                  → Spring Shell CLI: report generate / generate-today (--level switches strategy)
+application/            → Strategy pattern: GenerateAgent interface + 3 implementations + AgentRouter
+agent/subagents         → LangChain4j AiService interfaces for parallel Multi-Agent sub-agents
+agent/coordinator       → LangChain4j AiService interface for the COORDINATOR_AGENT Master Agent
+domain/                 → Models (record types) + port interfaces (zero external deps)
+infrastructure/         → Adapters: JGit, Jira REST, LangChain4j AI, PGVector + config beans
 ```
 
 ### Strategy Pattern: GenerateAgent
 
-`GenerateAgent` is the central strategy interface with two implementations:
+`GenerateAgent` is the central strategy interface with three implementations:
 
-1. **`GenerateReportUseCase`** — single-agent ReAct loop via `DailyReportAgent` (LangChain4j tool-calling with `GitTool` + `JiraTool`, includes RAG)
-2. **`MultiAgentOrchestrator`** — parallel multi-agent: `GitDiffAnalyzerAgent` and `JiraAnalyzerAgent` run concurrently via `CompletableFuture`, then `ReportGeneratorAgent` synthesizes the report
+1. **`GenerateReportUseCase`** (`SINGLE`) — single-agent ReAct loop via `DailyReportAgent` (LangChain4j tool-calling with `GitTool` + `JiraTool`, includes RAG)
+2. **`MultiAgentOrchestrator`** (`SAMPLE_MULTIPLE`) — parallel multi-agent with static Java orchestration: `GitDiffAnalyzerAgent` and `JiraAnalyzerAgent` run concurrently via `CompletableFuture`, then `ReportGeneratorAgent` synthesizes the report
+3. **`CoordinatorOrchestrator`** (`COORDINATOR_AGENT`) — Master/Sub multi-agent with LLM-driven dynamic orchestration: `CoordinatorAgent` (AiService with ReAct) decides at runtime which of the 4 `@Tool` methods on `SubAgentDelegationTool` to call (`analyzeGitChanges` / `analyzeJiraIssue` / `retrieveSimilarReports` / `composeFinalReport`), and in what order
 
-`AgentRouter` holds the strategy selection logic (in-progress; shell currently injects `GenerateReportUseCase` directly). `AgentLevel` enum: `SINGLE` / `SAMPLE_MULTIPLE` / `COORDINATOR_AGENT`.
+`AgentRouter` selects the implementation by `AgentLevel`. The shell layer injects `AgentRouter` and exposes the choice via `--level`. `AgentLevel` enum: `SINGLE` / `SAMPLE_MULTIPLE` / `COORDINATOR_AGENT`.
 
 ### Key Integration Points
 
-- **LangChain4j `AiServices`**: All agents (single `DailyReportAgent` + three sub-agents) are Java interfaces assembled in `LangChain4jConfig` / `MultiAgentConfig` via `AiServices.builder()`
-- **RAG**: `PgVectorReportStore` stores report embeddings using `All-MiniLM-L6-v2` (384-dim) in `report_embeddings`; used by the single-agent path's `ContentRetriever`
+- **LangChain4j `AiServices`**: All agents (single `DailyReportAgent`, three sub-agents, `CoordinatorAgent`) are Java interfaces assembled in `LangChain4jConfig` / `MultiAgentConfig` / `CoordinatorConfig` via `AiServices.builder()`
+- **RAG**: `PgVectorReportStore` stores report embeddings using `All-MiniLM-L6-v2` (384-dim) in `report_embeddings`. SINGLE path consumes it via `ContentRetriever`; COORDINATOR_AGENT path consumes it via the `retrieveSimilarReports` `@Tool` (calls `ReportStore.searchSimilar()` directly)
 - **LLM config**: `ChatModelConfig` reads `LlmProperties` — supports `openai-compatible` (ZhipuAI/OpenAI) and `ollama` providers via `LLM_PROVIDER` env var
 
 ### Domain Models (Records)
