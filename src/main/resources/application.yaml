@@ -42,12 +42,21 @@ llm:
 
 # LangChain4j Additional Settings
 langchain4j:
-  chat-memory:
-    max-messages: 20
+  # 各报告 Agent 均为「一次调用一份日报」，不绑定 chatMemory（详见 *Config 说明）
   rag:
     max-results: 3
 
-# PGVector Configuration
+# 向量存储选择：duckdb（默认，进程内、无需服务器）| pgvector（需独立 Postgres）
+report:
+  store:
+    type: ${REPORT_STORE_TYPE:duckdb}
+
+# DuckDB Configuration（report.store.type=duckdb 时生效）
+duckdb:
+  file-path: ${DUCKDB_FILE_PATH:./data/report_embeddings.duckdb}
+  table: ${DUCKDB_TABLE:report_embeddings}
+
+# PGVector Configuration（report.store.type=pgvector 时生效）
 pgvector:
   host: ${PGVECTOR_HOST:localhost}
   port: ${PGVECTOR_PORT:5432}

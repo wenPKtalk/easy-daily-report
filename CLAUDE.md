@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-# Start PGVector (required before running the app)
-docker compose up -d
+# Vector store defaults to DuckDB (embedded, in-process, single file at ./data/) — no server needed.
+# Only start PGVector if you set REPORT_STORE_TYPE=pgvector:
+#   docker compose up -d
 
 # Build and run (recommended)
 ./run.sh
@@ -31,7 +32,7 @@ docker compose up -d
 
 ## Environment Setup
 
-Copy `.env.example` to `.env` — the app auto-loads it via `spring-dotenv`, no manual `export` needed. Required key: `OPENAI_API_KEY`. PGVector must be running before startup.
+Copy `.env.example` to `.env` — the app auto-loads it via `spring-dotenv`, no manual `export` needed. Required key: `OPENAI_API_KEY`. The vector store defaults to embedded **DuckDB** (no server). Set `REPORT_STORE_TYPE=pgvector` only if you want the Postgres/pgvector backend, in which case PGVector must be running before startup.
 
 ## Architecture
 
@@ -43,7 +44,7 @@ application/            → Strategy pattern: GenerateAgent interface + 3 implem
 agent/subagents         → LangChain4j AiService interfaces for parallel Multi-Agent sub-agents
 agent/coordinator       → LangChain4j AiService interface for the COORDINATOR_AGENT Master Agent
 domain/                 → Models (record types) + port interfaces (zero external deps)
-infrastructure/         → Adapters: JGit, Jira REST, LangChain4j AI, PGVector + config beans
+infrastructure/         → Adapters: JGit, Jira REST, LangChain4j AI, DuckDB/PGVector embedding store + config beans
 ```
 
 ### Strategy Pattern: GenerateAgent
@@ -59,7 +60,7 @@ infrastructure/         → Adapters: JGit, Jira REST, LangChain4j AI, PGVector 
 ### Key Integration Points
 
 - **LangChain4j `AiServices`**: All agents (single `DailyReportAgent`, three sub-agents, `CoordinatorAgent`) are Java interfaces assembled in `LangChain4jConfig` / `MultiAgentConfig` / `CoordinatorConfig` via `AiServices.builder()`
-- **RAG**: `PgVectorReportStore` stores report embeddings using `All-MiniLM-L6-v2` (384-dim) in `report_embeddings`. SINGLE path consumes it via `ContentRetriever`; COORDINATOR_AGENT path consumes it via the `retrieveSimilarReports` `@Tool` (calls `ReportStore.searchSimilar()` directly)
+- **RAG**: `EmbeddingStoreReportStore` (store-agnostic adapter) stores report embeddings using `All-MiniLM-L6-v2` (384-dim) in `report_embeddings`. The backing `EmbeddingStore` bean is selected by `report.store.type`: **`duckdb`** (default, `DuckDBConfig`, embedded single-file) or `pgvector` (`PgVectorConfig`). SINGLE path consumes it via `ContentRetriever`; COORDINATOR_AGENT path consumes it via the `retrieveSimilarReports` `@Tool` (calls `ReportStore.searchSimilar()` directly)
 - **LLM config**: `ChatModelConfig` reads `LlmProperties` — supports `openai-compatible` (ZhipuAI/OpenAI) and `ollama` providers via `LLM_PROVIDER` env var
 
 ### Domain Models (Records)
@@ -73,8 +74,8 @@ infrastructure/         → Adapters: JGit, Jira REST, LangChain4j AI, PGVector 
 - `GitPort` → `JGitAdapter`
 - `JiraPort` → `JiraRestAdapter`
 - `ReportGenerator` → `AgentReportGenerator`
-- `ReportStore` → `PgVectorReportStore`
+- `ReportStore` → `EmbeddingStoreReportStore` (backed by DuckDB or PGVector `EmbeddingStore`, per `report.store.type`)
 
 ## Tech Stack
 
-Java 21, Spring Boot 4.0.6, Spring Shell 4.0.1, LangChain4j 1.13.1, JGit 7.2.0, PGVector (pg17), Lombok, Gradle
+Java 21, Spring Boot 4.0.6, Spring Shell 4.0.1, LangChain4j 1.13.1 (+ `langchain4j-community-duckdb` 1.0.0-beta5), JGit 7.2.0, DuckDB (embedded, default) / PGVector (pg17, optional), Lombok, Gradle

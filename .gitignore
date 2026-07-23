@@ -36,3 +36,6 @@ out/
 ### VS Code ###
 .vscode/
 /.env
+
+### DuckDB 嵌入式向量库数据文件 ###
+/data/
