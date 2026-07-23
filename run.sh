@@ -90,22 +90,6 @@ check_config() {
     fi
 }
 
-# 检查 PGVector 可选
-check_pgvector() {
-    local pg_host="${PGVECTOR_HOST:-localhost}"
-    local pg_port="${PGVECTOR_PORT:-5432}"
-
-    info "检查 PGVector 连接 ($pg_host:$pg_port)..."
-
-    if nc -z "$pg_host" "$pg_port" 2>/dev/null; then
-        success "PGVector 已就绪"
-    else
-        warn "PGVector 未运行 ($pg_host:$pg_port)"
-        warn "RAG 历史检索功能将不可用"
-        warn "启动 PGVector: docker compose up -d"
-    fi
-}
-
 # 构建项目（如果需要）
 build_if_needed() {
     local jar_file="$SCRIPT_DIR/build/libs/easy-daily-report-0.0.1-SNAPSHOT.jar"
@@ -185,7 +169,6 @@ main() {
     # 检查配置（除非跳过）
     if [ "$skip_checks" = false ]; then
         check_config
-        check_pgvector
     fi
 
     # 构建项目

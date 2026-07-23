@@ -6,10 +6,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Embedding 模型配置（与具体向量存储无关，始终生效）。
+ * Embedding 模型配置（与向量存储解耦，始终生效）。
  * <p>
- * 无论 report.store.type 选 duckdb 还是 pgvector，都复用同一个 384 维
- * All-MiniLM-L6-v2 本地 ONNX 模型，保证已存向量与新查询向量同源可比。
+ * 提供 384 维 All-MiniLM-L6-v2 本地 ONNX 模型，保证已存向量与新查询向量同源可比。
  */
 @Configuration
 public class EmbeddingModelConfig {

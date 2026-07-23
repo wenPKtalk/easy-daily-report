@@ -17,9 +17,9 @@ allowed-tools: Bash, Read, Grep
 ## 阶段 0 · 前置检查（失败则中止并说明）
 
 1. 确认 `.env` 存在且配置了 LLM：`grep -qE 'OPENAI_API_KEY|LLM_' .env` —— 没有 key 无法跑真实模型，直接中止并提示用户先配 `.env`。
-2. **启动 Postgres**（兼容 compose v2/v1）：`docker compose up -d 2>/dev/null || docker-compose up -d`。注意——向量库虽已切到嵌入式 DuckDB，但**应用仍为 chat/session 子系统装配了 Postgres 数据源**（`spring.datasource` + `spring.sql.init.mode=always`，见 `application.yaml`），因此真实 app 启动时仍需连 Postgres。等待端口就绪：`for i in $(seq 1 40); do (echo > /dev/tcp/localhost/5432) 2>/dev/null && break; sleep 2; done`。
+2. **无需任何数据库服务器**：存储全嵌入式（DuckDB 向量库 + H2 chat 库，均单文件于 `./data/`），确保 `./data/` 可写即可。
 3. 解析被测 commit：`COMMIT=$1`；若为空 `COMMIT=$(git rev-parse HEAD)`。记录 `git log -1 --oneline $COMMIT`。
-4. 为避免污染正式向量库，本次用**隔离的 DuckDB 文件**：导出 `export DUCKDB_FILE_PATH=./data/ai-test.duckdb REPORT_STORE_TYPE=duckdb`，并在开始前 `rm -f ./data/ai-test.duckdb`。
+4. 为避免污染正式库，本次用**隔离的文件**：`export DUCKDB_FILE_PATH=./data/ai-test.duckdb CHAT_DB_PATH=./data/ai-test-chat`，并在开始前清理这两组文件。
 
 ## 阶段 1 · 确定性门禁（先跑，快、无需 LLM）
 

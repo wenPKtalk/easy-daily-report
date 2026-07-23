@@ -4,11 +4,12 @@ spring:
   shell:
     interactive:
       enabled: true
+  # chat/session 持久化：嵌入式 H2，单文件在 ./data/，无需任何数据库服务器
   datasource:
-    url: jdbc:postgresql://${PGVECTOR_HOST:localhost}:${PGVECTOR_PORT:5432}/${PGVECTOR_DATABASE:daily_report}
-    username: ${PGVECTOR_USER:postgres}
-    password: ${PGVECTOR_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:h2:file:${CHAT_DB_PATH:./data/chat};DB_CLOSE_DELAY=-1
+    username: ${CHAT_DB_USER:sa}
+    password: ${CHAT_DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
   sql:
     init:
       schema-locations: classpath:db/init-chat-tables.sql
@@ -46,25 +47,10 @@ langchain4j:
   rag:
     max-results: 3
 
-# 向量存储选择：duckdb（默认，进程内、无需服务器）| pgvector（需独立 Postgres）
-report:
-  store:
-    type: ${REPORT_STORE_TYPE:duckdb}
-
-# DuckDB Configuration（report.store.type=duckdb 时生效）
+# DuckDB 向量存储（唯一向量存储实现，进程内、单文件、无需服务器）
 duckdb:
   file-path: ${DUCKDB_FILE_PATH:./data/report_embeddings.duckdb}
   table: ${DUCKDB_TABLE:report_embeddings}
-
-# PGVector Configuration（report.store.type=pgvector 时生效）
-pgvector:
-  host: ${PGVECTOR_HOST:localhost}
-  port: ${PGVECTOR_PORT:5432}
-  database: ${PGVECTOR_DATABASE:daily_report}
-  user: ${PGVECTOR_USER:postgres}
-  password: ${PGVECTOR_PASSWORD:postgres}
-  table: report_embeddings
-  dimension: 384
 
 # Jira Configuration
 jira:

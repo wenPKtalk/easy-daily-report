@@ -51,19 +51,18 @@ dependencies {
 	// LangChain4j Ollama - 支持本地模型
 	implementation 'dev.langchain4j:langchain4j-ollama'
 
-	// 其他模块（pgvector 和 本地 embedding，由 LangChain4j BOM 管理 beta 版本）
-	implementation 'dev.langchain4j:langchain4j-pgvector'
+	// 本地 embedding 模型（由 LangChain4j BOM 管理 beta 版本）
 	implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2'
 
-	// 嵌入式向量存储：DuckDB（进程内、单文件持久化，去掉 Postgres/Docker 依赖）
+	// 嵌入式向量存储：DuckDB（进程内、单文件持久化，无需任何数据库服务器）
 	// 社区模块独立发布线，不由 langchain4j-bom:1.13.1 管理 —— 显式 pin 版本
 	implementation 'dev.langchain4j:langchain4j-community-duckdb:1.0.0-beta5'
 
 	// Git operations
 	implementation 'org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r'
 
-	// PostgreSQL
-	runtimeOnly 'org.postgresql:postgresql'
+	// H2（嵌入式关系库，用于 chat/session 持久化；单文件，无需服务器）
+	runtimeOnly 'com.h2database:h2'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
@@ -78,7 +77,6 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.shell:spring-shell-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testRuntimeOnly 'com.h2database:h2'
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }

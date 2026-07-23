@@ -28,9 +28,6 @@ call :load_env
 :: 检查配置
 call :check_config
 
-:: 检查 PGVector（可选）
-call :check_pgvector
-
 :: 构建项目
 call :build_if_needed
 
@@ -87,15 +84,6 @@ if "%OPENAI_API_KEY%"=="" (
     echo.
     pause
 )
-goto :eof
-
-:: 检查 PGVector
-:check_pgvector
-echo %BLUE%[INFO]%NC% 检查 PGVector 连接 (%PGVECTOR_HOST%:%PGVECTOR_PORT%)...
-:: Windows 没有 nc 命令，这里仅作提示
-if "%PGVECTOR_HOST%"=="" set PGVECTOR_HOST=localhost
-if "%PGVECTOR_PORT%"=="" set PGVECTOR_PORT=5432
-echo %YELLOW%[WARN]%NC% 请确保 PGVector 已启动: docker compose up -d
 goto :eof
 
 :: 构建项目

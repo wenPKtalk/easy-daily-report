@@ -13,7 +13,7 @@
 | 🤖 **多模型 AI** | 支持 OpenAI、ZhipuAI、Ollama 等多种 LLM 提供商 |
 | 🔗 **Git 集成** | 自动提取 Commit Diff，分析代码变更 |
 | 📋 **Jira 关联** | 获取 Issue 描述，理解业务背景 |
-| 🧠 **RAG 增强** | 基于 PGVector 检索历史日报，保持风格一致 |
+| 🧠 **RAG 增强** | 基于嵌入式 DuckDB 向量检索历史日报，保持风格一致 |
 | 📝 **结构化输出** | 标准化 Markdown 日报格式 |
 | ⚡ **轻量 CLI** | Spring Shell + JLine，智能提示与历史记录 |
 | 🎨 **终端增强** | JANSI 支持，跨平台颜色输出 |
@@ -81,8 +81,9 @@ GitDiffAnalyzerAgent          JiraAnalyzerAgent
 ## 📋 前置要求
 
 - **JDK 21+**
-- **Docker** (用于 PGVector)
 - **OpenAI API Key** (或兼容 API)
+
+> 存储全嵌入式（DuckDB 向量库 + H2 chat 库，单文件于 `./data/`），**无需 Docker / 数据库服务器**。
 
 ---
 
@@ -95,15 +96,7 @@ git clone <your-repo-url>
 cd easy-daily-report
 ```
 
-### 2. 启动 PGVector
-
-```bash
-docker compose up -d
-```
-
-> 这将启动 PostgreSQL + pgvector 扩展，用于存储日报向量。
-
-### 3. 配置环境变量
+### 2. 配置环境变量
 
 项目使用 `spring-dotenv` 自动加载 `.env` 文件，**无需手动 export**。
 
@@ -120,7 +113,7 @@ export OPENAI_API_KEY=sk-your-api-key-here
 export LLM_BASE_URL=https://api.openai.com/v1  # 可选，支持 ZhipuAI/GLM
 ```
 
-### 4. 构建 & 运行
+### 3. 构建 & 运行
 
 ```bash
 # 快速启动（推荐）
@@ -247,7 +240,7 @@ shell:> report help
 | `JIRA_USERNAME` | ❌ | — | Jira 用户名 |
 | `JIRA_API_TOKEN` | ❌ | — | Jira API Token |
 | `GIT_REPO_PATH` | ❌ | `./` | 默认 Git 仓库路径 |
-| `PGVECTOR_*` | ❌ | 见配置 | 数据库连接配置 |
+| `DUCKDB_FILE_PATH` / `CHAT_DB_PATH` | ❌ | `./data/...` | 嵌入式存储文件路径（可选） |
 
 ### application.yml
 
@@ -275,7 +268,8 @@ llm:
 | 终端 | JLine + JANSI | 3.26 + 2.4.1 |
 | 配置 | spring-dotenv | 5.1.0 |
 | AI | LangChain4j | 1.13.1 |
-| 向量库 | PGVector | pg17 |
+| 向量库 | DuckDB (嵌入式) | 1.0.0-beta5 |
+| chat 库 | H2 (嵌入式) | — |
 | Embedding | All-MiniLM-L6-v2 | — |
 | Git | JGit | 7.2.0 |
 | 构建 | Gradle | — |

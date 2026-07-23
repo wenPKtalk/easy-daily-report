@@ -18,8 +18,8 @@ import java.util.List;
 /**
  * 基于 LangChain4j {@link EmbeddingStore} 的日报存储（Adapter）。
  * <p>
- * 实现 {@link ReportStore} 端口，与具体向量库无关：注入哪个 {@code EmbeddingStore} bean 就用哪个
- * （DuckDB 或 PGVector，由 {@code report.store.type} 决定）。
+ * 实现 {@link ReportStore} 端口，与具体向量库无关：使用注入的 {@code EmbeddingStore} bean
+ * （当前为嵌入式 DuckDB，见 {@code DuckDBConfig}）。
  *
  * 设计模式：
  * - Repository Pattern — 封装存储细节

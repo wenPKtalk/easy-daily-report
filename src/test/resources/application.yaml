@@ -25,14 +25,9 @@ langchain4j:
   rag:
     max-results: 1
 
-pgvector:
-  host: localhost
-  port: 5432
-  database: test_db
-  user: postgres
-  password: postgres
+duckdb:
+  file-path: ./build/tmp/test-report-embeddings.duckdb
   table: report_embeddings
-  dimension: 384
 
 jira:
   base-url: https://test.atlassian.net
