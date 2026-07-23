@@ -148,7 +148,7 @@ langchain4j:
 
 ---
 
-## 错误 3: BeanCreationException (测试时连接 PGVector)
+## 错误 3: BeanCreationException (测试时初始化向量库)
 
 ### 症状
 
@@ -159,7 +159,7 @@ Factory method 'embeddingStore' threw exception with message: Failed to execute 
 
 ### 根因分析
 
-`@SpringBootTest` 加载完整的 Spring ApplicationContext，包括 `PgVectorConfig` 中的 `EmbeddingStore` bean。该 bean 在初始化时会尝试连接 PostgreSQL 数据库创建表，但测试环境未启动 PGVector 容器。
+`@SpringBootTest` 加载完整的 Spring ApplicationContext，包括 `DuckDBConfig` 中的 `EmbeddingStore` bean（以及 `EmbeddingModelConfig` 中的 All-MiniLM-L6-v2 嵌入模型）。该 bean 在初始化时会打开 `./data/report_embeddings.duckdb` 文件、建表并加载嵌入模型，在测试环境中既慢又是不必要的外部副作用（存储为嵌入式 DuckDB，无需数据库服务，但测试仍应隔离掉这些副作用）。
 
 ### 修复方案
 
@@ -196,7 +196,7 @@ class EasyDailyReportApplicationTests {
 | `build.gradle` | 替换 `langchain4j-*-spring-boot-starter` 为 `langchain4j-open-ai` | #2 RestClient ClassNotFound |
 | `LangChain4jConfig.java` | 添加 `chatModel()` @Bean 方法 | #2 手动创建 Bean |
 | `application.yaml` | 添加 `base-url` 配置 | #2 支持 ZhipuAI |
-| `EasyDailyReportApplicationTests.java` | 添加 `@MockitoBean` for EmbeddingStore/ChatModel | #3 BeanCreationException |
+| `EasyDailyReportApplicationTests.java` | 添加 `@MockitoBean` for EmbeddingStore/ChatModel | #3 BeanCreationException（嵌入式 DuckDB 向量库初始化） |
 
 ---
 

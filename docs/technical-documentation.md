@@ -30,7 +30,7 @@
 
 ### 1.1 项目目标
 
-Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能够结合 **Git Commit Code Diff** 和 **Jira Issue 描述**，通过 **ReAct 模式** + **RAG**（基于 PGVector）自动生成专业的工作日报。
+Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能够结合 **Git Commit Code Diff** 和 **Jira Issue 描述**，通过 **ReAct 模式** + **RAG**（基于嵌入式 DuckDB 向量库）自动生成专业的工作日报。存储完全嵌入化（DuckDB + H2，单文件落在 `./data/` 下），无需数据库服务器，也无需 Docker。
 
 ### 1.2 核心能力
 
@@ -39,7 +39,7 @@ Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能�
 | Git Diff 分析 | 基于 JGit 读取 commit 信息和代码差异 |
 | Jira 集成 | 通过 REST API 获取 Issue 上下文 |
 | ReAct Agent | LLM 自主决策调用工具，多轮推理 |
-| RAG 检索 | 通过 PGVector 检索历史日报作为参考 |
+| RAG 检索 | 通过嵌入式 DuckDB 向量库检索历史日报作为参考 |
 | 结构化输出 | 生成 Markdown 格式的标准化日报 |
 
 ### 1.3 核心输入/输出
@@ -96,12 +96,12 @@ Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能�
 │  ┌──────────────────────▼──────────────────────────────────┐ │
 │  │ AgentReportGenerator (单 Agent: DailyReportAgent + RAG) │ │
 │  │ MultiAgentConfig (Sub-Agents: Git/Jira/ReportGenerator) │ │
-│  │ JGitAdapter / JiraRestAdapter / PgVectorReportStore     │ │
+│  │ JGitAdapter / JiraRestAdapter / EmbeddingStoreReportStore│ │
 │  └─────────────────────────────────────────────────────────┘ │
 ├──────────────────────────────────────────────────────────────┤
 │                    External Systems                           │
 │  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────────┐ │
-│  │ Git Repo │  │ Jira API │  │ PGVector  │  │ LLM (API)  │ │
+│  │ Git Repo │  │ Jira API │  │ DuckDB(本地)│  │ LLM (API)  │ │
 │  └──────────┘  └──────────┘  └───────────┘  └────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -130,7 +130,7 @@ Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能�
 │                 │──► Final Answer: Markdown 日报
 └────────┬────────┘
          ▼
-    PgVectorReportStore.save()
+    EmbeddingStoreReportStore.save()
 ```
 
 ### 2.3 数据流 B：Multi-Agent (并行执行)
@@ -222,8 +222,9 @@ Easy Daily Report 是一个轻量级命令行（CLI）智能 Agent 应用，能�
 | 配置 | spring-dotenv | 5.1.0 | .env 文件自动加载 |
 | AI | LangChain4j | 1.13.1 | Agent + Tools + RAG |
 | LLM | OpenAI (可替换) | — | GPT-4o / Claude / Ollama |
-| 向量库 | PGVector | pg17 | 向量存储与检索 |
-| Embedding | All-MiniLM-L6-v2 | — | 本地轻量嵌入模型 |
+| 向量库 | 嵌入式 DuckDB | 1.0.0-beta5 | 向量存储与检索（`langchain4j-community-duckdb`，单文件 `./data/report_embeddings.duckdb`，无服务器） |
+| 会话存储 | 嵌入式 H2 | — | 聊天/会话持久化（`jdbc:h2:file:./data/chat`，无服务器） |
+| Embedding | All-MiniLM-L6-v2 | — | 本地轻量嵌入模型（384 维） |
 | Git | JGit | 7.2.0 | 纯 Java Git 操作 |
 | 构建 | Gradle | — | Groovy DSL |
 | 测试 | JUnit 5 | — | 单元/集成测试 |
@@ -241,12 +242,12 @@ spring-boot-starter
        │
        ├── langchain4j (core)             (手动配置，非 starter)
        │      ├── langchain4j-open-ai      (OpenAI/ZhipuAI 客户端)
-       │      ├── langchain4j-pgvector     (向量存储)
+       │      ├── langchain4j-community-duckdb (嵌入式向量存储)
        │      └── langchain4j-embeddings-all-minilm-l6-v2
        │
        ├── org.eclipse.jgit
        │
-       └── postgresql (runtime)
+       └── com.h2database:h2 (runtime)    (嵌入式会话存储)
 ```
 
 ---
@@ -323,12 +324,13 @@ com.topsion.easy_daily_report/
 │   ├── jira/
 │   │   └── JiraRestAdapter.java              #   JiraPort 实现
 │   ├── rag/
-│   │   └── PgVectorReportStore.java          #   ReportStore 实现
+│   │   └── EmbeddingStoreReportStore.java     #   ReportStore 实现（嵌入式 DuckDB）
 │   └── config/
 │       ├── ChatModelConfig.java              #   LLM 模型配置
 │       ├── LangChain4jConfig.java            #   单 Agent 组装配置
 │       ├── MultiAgentConfig.java             #   ★ Sub-Agent Bean 配置（MVP1 新增）
-│       ├── PgVectorConfig.java               #   向量存储配置
+│       ├── DuckDBConfig.java                 #   嵌入式 DuckDB 向量存储配置
+│       ├── EmbeddingModelConfig.java         #   Embedding 模型 Bean（All-MiniLM-L6-v2）
 │       ├── ShellConfig.java                  #   Shell 配置
 │       └── properties/
 │           └── LlmProperties.java            #   LLM 属性绑定
@@ -467,7 +469,7 @@ public interface ReportStore {
 }
 ```
 
-**实现:** `PgVectorReportStore` — 使用 PGVector 进行向量化存储和相似度检索。
+**实现:** `EmbeddingStoreReportStore` — 使用嵌入式 DuckDB 向量库进行向量化存储和相似度检索。
 
 ### 6.2 适配器映射关系
 
@@ -477,7 +479,7 @@ Domain Port              Infrastructure Adapter        External System
 GitPort           ◄──── JGitAdapter               ──► Git Repository
 JiraPort          ◄──── JiraRestAdapter            ──► Jira REST API
 ReportGenerator   ◄──── AgentReportGenerator       ──► LLM API
-ReportStore       ◄──── PgVectorReportStore        ──► PostgreSQL + pgvector
+ReportStore       ◄──── EmbeddingStoreReportStore   ──► 嵌入式 DuckDB (本地文件)
 ```
 
 ---
@@ -599,10 +601,10 @@ public enum AgentLevel {
 │  │ TextSegment │    │ Embedding           │  │
 │  │     │       │    │     │               │  │
 │  │     ▼       │    │     ▼               │  │
-│  │ Embedding   │    │ PGVector 近似搜索    │  │
+│  │ Embedding   │    │ DuckDB 近似搜索      │  │
 │  │     │       │    │     │               │  │
 │  │     ▼       │    │     ▼               │  │
-│  │ PGVector    │    │ 相似日报片段         │  │
+│  │ DuckDB      │    │ 相似日报片段         │  │
 │  │   Store     │    │                     │  │
 │  └─────────────┘    └─────────────────────┘  │
 └───────────────────────────────────────────────┘
@@ -614,7 +616,7 @@ public enum AgentLevel {
 |------|-----|------|
 | Embedding Model | All-MiniLM-L6-v2 | 本地运行，384 维 |
 | 向量维度 | 384 | 匹配 Embedding 模型 |
-| 存储表 | `report_embeddings` | PGVector 表名 |
+| 存储文件 | `./data/report_embeddings.duckdb` | 嵌入式 DuckDB 单文件（表 `report_embeddings`） |
 | 检索数量 | 3 | 每次返回最相似的 3 条 |
 
 ### 8.3 Metadata 策略
@@ -690,13 +692,10 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 | LLM | `langchain4j.open-ai.chat-model.temperature` | — | `0.3` | 生成温度 |
 | Memory | `langchain4j.chat-memory.max-messages` | — | `20` | 记忆窗口 |
 | RAG | `langchain4j.rag.max-results` | — | `3` | 检索条数 |
-| PGVector | `pgvector.host` | `PGVECTOR_HOST` | `localhost` | 数据库主机 |
-| PGVector | `pgvector.port` | `PGVECTOR_PORT` | `5432` | 数据库端口 |
-| PGVector | `pgvector.database` | `PGVECTOR_DATABASE` | `daily_report` | 数据库名 |
-| PGVector | `pgvector.user` | `PGVECTOR_USER` | `postgres` | 用户名 |
-| PGVector | `pgvector.password` | `PGVECTOR_PASSWORD` | `postgres` | 密码 |
-| PGVector | `pgvector.table` | — | `report_embeddings` | 向量表名 |
-| PGVector | `pgvector.dimension` | — | `384` | 向量维度 |
+| DuckDB | 向量库文件 | — | `./data/report_embeddings.duckdb` | 嵌入式单文件，无服务器 |
+| 向量表 | — | — | `report_embeddings` | 向量表名 |
+| 向量维度 | — | — | `384` | 匹配 Embedding 模型 |
+| H2 | `spring.datasource.url` | — | `jdbc:h2:file:./data/chat` | 嵌入式会话库（driver `org.h2.Driver`，user `sa`） |
 | Jira | `jira.base-url` | `JIRA_BASE_URL` | — | Jira 地址 |
 | Jira | `jira.username` | `JIRA_USERNAME` | — | Jira 用户名 |
 | Jira | `jira.api-token` | `JIRA_API_TOKEN` | — | Jira API Token |
@@ -706,7 +705,7 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 
 - **API Key 禁止硬编码** — 必须通过环境变量注入
 - Jira API Token 同样通过环境变量管理
-- PGVector 密码在生产环境必须使用安全的密钥管理方案
+- 存储为本地嵌入式文件（DuckDB + H2，位于 `./data/`），无需外部数据库凭据；注意保护 `./data/` 目录访问权限
 
 ---
 
@@ -718,11 +717,11 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 |---------|---------|------|
 | **Strategy** ★ | `GenerateAgent` 接口（MVP1 新增）| 统一单 Agent 和 Multi-Agent 两种生成策略 |
 | **Adapter** | `JGitAdapter`, `JiraRestAdapter`, `AgentReportGenerator` | 将外部系统 API 适配为 Domain 端口接口 |
-| **Factory Method** | `LangChain4jConfig`, `MultiAgentConfig`, `PgVectorConfig` 中的 `@Bean` | 封装复杂 Agent/Store 对象的创建逻辑 |
-| **Builder** | `AiServices.builder()`, `PgVectorEmbeddingStore.builder()` | 分步构建复杂对象 |
+| **Factory Method** | `LangChain4jConfig`, `MultiAgentConfig`, `DuckDBConfig`, `EmbeddingModelConfig` 中的 `@Bean` | 封装复杂 Agent/Store 对象的创建逻辑 |
+| **Builder** | `AiServices.builder()`, `DuckDBEmbeddingStore.builder()` | 分步构建复杂对象 |
 | **Facade** | `DailyReportCommands`, `GitTool`, `JiraTool` | 简化复杂子系统的入口 |
 | **Proxy** | `DailyReportAgent`, Sub-Agents (AiServices 动态代理) | LangChain4j 运行时代理生成 |
-| **Repository** | `ReportStore` / `PgVectorReportStore` | 封装持久化细节 |
+| **Repository** | `ReportStore` / `EmbeddingStoreReportStore` | 封装持久化细节 |
 | **Composite** | `LangChain4jConfig` 组合 Tools+RAG+Memory | 组合多个组件形成完整 Agent |
 | **Command** | `ReportRequest` | 封装请求参数为不可变对象 |
 | **Orchestrator** ★ | `MultiAgentOrchestrator`（MVP1 新增）| 编排多个 Sub-Agent 并行执行并整合结果 |
@@ -775,7 +774,7 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
      Repository  │
            ┌─────▼──────┐
            │ ReportStore│
-           │ (PGVector) │
+           │ (DuckDB)   │
            └────────────┘
 ```
 
@@ -793,7 +792,7 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 | `JGitAdapter` | 只封装 JGit 操作 |
 | `JiraRestAdapter` | 只封装 Jira API |
 | `AgentReportGenerator` | 只委托 DailyReportAgent 生成 |
-| `PgVectorReportStore` | 只管理向量存储 |
+| `EmbeddingStoreReportStore` | 只管理向量存储 |
 | `DailyReportCommands` | 只处理 CLI 交互 |
 
 ### O — 开闭原则
@@ -829,36 +828,35 @@ shell:> report generate -c abc1234 -j PROJ-123 -p /path/to/repo
 ### 13.1 环境要求
 
 - **JDK:** 21+
-- **Docker:** 用于运行 PGVector
 - **API Key:** OpenAI 或兼容 API
+
+> 存储完全嵌入化（DuckDB + H2，单文件落在 `./data/` 下），**无需数据库服务器，也无需 Docker**。
 
 ### 13.2 快速启动
 
 ```bash
-# 1. 启动 PGVector
-docker compose up -d
-
-# 2. 配置环境变量（使用 .env 文件，自动加载）
+# 1. 配置环境变量（使用 .env 文件，自动加载）
 cp .env.example .env
 # 编辑 .env 填入 API Key 等配置
 
-# 3. 构建项目
+# 2. 构建项目
 ./gradlew build
 
-# 4. 运行应用（自动加载 .env）
+# 3. 运行应用（自动加载 .env；首次启动自动在 ./data/ 下创建 DuckDB 与 H2 文件）
 ./gradlew bootRun
 
-# 5. 在 Shell 中使用
+# 4. 在 Shell 中使用
 shell:> report generate -c abc1234 -j PROJ-123
 ```
 
-> **注意：** 项目使用 `spring-dotenv` 自动加载 `.env` 文件，无需手动 `export` 环境变量。
+> **注意：** 项目使用 `spring-dotenv` 自动加载 `.env` 文件，无需手动 `export` 环境变量。存储为嵌入式文件，无需启动任何数据库服务或 Docker。
 
-### 13.3 Docker Compose 服务
+### 13.3 本地存储文件
 
-| 服务 | 镜像 | 端口 | 用途 |
-|------|------|------|------|
-| pgvector | `pgvector/pgvector:pg17` | 5432 | 向量数据库 |
+| 文件 | 用途 |
+|------|------|
+| `./data/report_embeddings.duckdb` | 嵌入式 DuckDB 向量库（RAG 历史日报） |
+| `./data/chat*` | 嵌入式 H2 会话/聊天持久化（`spring.sql.init` 在启动时运行 `src/main/resources/db/init-chat-tables.sql`，H2 方言：`VARCHAR` / `BIGINT AUTO_INCREMENT` / `MERGE INTO ... KEY(session_id)`） |
 
 ### 13.4 常用命令
 
@@ -944,7 +942,7 @@ shell:> report generate -c abc1234 -j PROJ-123
 
 - Spring Shell CLI 框架搭建
 - 单 Agent ReAct 模式（`DailyReportAgent` + `GitTool` + `JiraTool`）
-- PGVector RAG 子系统（历史日报检索）
+- 嵌入式 DuckDB RAG 子系统（历史日报检索）
 - `report generate` 命令
 - `report generate-today` 命令（自动收集今天的提交）
 
