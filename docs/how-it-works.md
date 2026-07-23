@@ -55,8 +55,8 @@
 │                    基础设施层 (Infrastructure)               │
 │                                                            │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ AgentReport     │  │ PgVectorReport  │  │  Adapters     │ │
-│  │ Generator       │  │ Store           │  │  - JGitAdapter│ │
+│  │ AgentReport     │  │ EmbeddingStore  │  │  Adapters     │ │
+│  │ Generator       │  │ ReportStore     │  │  - JGitAdapter│ │
 │  │                 │  │                 │  │  - JiraAdapter│ │
 │  └────────┬────────┘  └────────┬────────┘  └─────────────┘ │
 │           │                    │                           │
@@ -70,8 +70,8 @@
 │  │  └──────────────┘  └──────────┘  └────────────────┘ │ │
 │  │                                                        │ │
 │  │  ┌──────────────┐  ┌──────────┐  ┌────────────────┐ │ │
-│  │  │ ChatModel    │  │ ChatMemory│  │ PGVector       │ │ │
-│  │  │ (LLM核心)    │  │ (上下文)  │  │ (向量数据库)   │ │ │
+│  │  │ ChatModel    │  │ ChatMemory│  │ DuckDB         │ │ │
+│  │  │ (LLM核心)    │  │ (上下文)  │  │ (嵌入式向量库) │ │ │
 │  │  └──────────────┘  └──────────┘  └────────────────┘ │ │
 │  └───────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────┘
@@ -100,7 +100,7 @@ GenerateReportUseCase (当前默认策略)
     │         │
     │    ┌────┼────────────────┐
     │    ▼    ▼                ▼
-    │  LLM  Tools (Git/Jira)  RAG (PGVector)
+    │  LLM  Tools (Git/Jira)  RAG (DuckDB)
     │
     └─── 路径 B: Multi-Agent (并行)
               │
@@ -120,7 +120,7 @@ GenerateReportUseCase (当前默认策略)
          DailyReport (Markdown)
                 │
                 ▼
-    PgVectorReportStore.save()
+    EmbeddingStoreReportStore.save()
 ```
 
 ---
@@ -140,7 +140,8 @@ GenerateReportUseCase (当前默认策略)
 2. 配置类初始化 (按依赖顺序)
    ├── ChatModelConfig ────────► 创建 ChatModel (LLM客户端)
    ├── LangChain4jConfig ──────► ChatMemory, ContentRetriever
-   ├── PgVectorConfig ─────────► EmbeddingModel, EmbeddingStore
+   ├── EmbeddingModelConfig ───► EmbeddingModel (All-MiniLM-L6-v2)
+   ├── DuckDBConfig ───────────► EmbeddingStore (嵌入式 DuckDB)
    └── 其他 Infrastructure Bean
 
 3. Agent 组装
@@ -196,9 +197,9 @@ AgentReportGenerator.generate(request)
 
 Step 5: 持久化存储
 ─────────────────────────────────
-PgVectorReportStore.save(report)
+EmbeddingStoreReportStore.save(report)
     ├── 日报文本 → Embedding (AllMiniLmL6V2)
-    └── 存储到 PGVector (向量 + 元数据)
+    └── 存储到 DuckDB 嵌入式向量库 (向量 + 元数据)
 
 Step 6: 返回结果
 ─────────────────────────────────
@@ -482,7 +483,8 @@ DailyReport (Markdown 文本)
         │
         ▼
 ┌───────────────────────────────┐
-│ PgVectorReportStore.save()    │
+│ EmbeddingStoreReportStore     │
+│   .save()                     │
 │                               │
 │ 1. TextSegment.from(          │
 │      text: 日报内容,           │
@@ -508,7 +510,9 @@ DailyReport (Markdown 文本)
 │   segment                     │
 │ )                             │
 │                               │
-│ PGVector 数据库               │
+│ DuckDB 嵌入式向量库           │
+│ 文件: ./data/                 │
+│       report_embeddings.duckdb│
 │ 表: report_embeddings          │
 │ - embedding: vector(384)      │
 │ - text: 日报内容              │
@@ -539,7 +543,7 @@ DailyReport (Markdown 文本)
 │     .minScore(0.7)            │
 │ )                             │
 │                               │
-│ PGVector 相似度查询           │
+│ DuckDB 相似度查询             │
 │ (向量余弦相似度)              │
 └───────────────┬───────────────┘
                 │
@@ -559,29 +563,28 @@ DailyReport (Markdown 文本)
 ### 5.3 向量存储与检索组件
 
 ```java
-// PgVectorConfig.java - 向量存储配置
+// EmbeddingModelConfig.java - 嵌入模型配置
 @Configuration
-public class PgVectorConfig {
-    
+public class EmbeddingModelConfig {
+
     @Bean
     public EmbeddingModel embeddingModel() {
         // AllMiniLmL6V2: 将文本转换为 384维向量
         return new AllMiniLmL6V2EmbeddingModel();
     }
-    
+}
+
+// DuckDBConfig.java - 嵌入式向量存储配置
+@Configuration
+public class DuckDBConfig {
+
     @Bean
     @Lazy
-    public EmbeddingStore<TextSegment> embeddingStore(
-            @Value("${pgvector.host}") String host,
-            ...
-    ) {
-        return PgVectorEmbeddingStore.builder()
-                .host(host)
-                .port(port)
-                .database(database)
-                .table("report_embeddings")  // 存储表名
+    public EmbeddingStore<TextSegment> embeddingStore() {
+        // 单文件嵌入式 DuckDB，无需数据库服务器
+        return DuckDBEmbeddingStore.builder()
+                .filePath("./data/report_embeddings.duckdb")
                 .dimension(384)              // 向量维度
-                .createTable(true)           // 自动建表
                 .build();
     }
 }
@@ -621,8 +624,8 @@ sequenceDiagram
     participant Git as GitTool
     participant Jira as JiraTool
     participant RAG as ContentRetriever
-    participant PG as PGVector
-    participant Store as PgVectorReportStore
+    participant PG as DuckDB
+    participant Store as EmbeddingStoreReportStore
 
     %% 启动阶段
     Note over Shell,Store: ========== 应用启动阶段 ==========
@@ -716,14 +719,14 @@ sequenceDiagram
 | **T9** | ~1500ms | Jira 工具执行 | `JiraTool` 调用 API 获取 Issue 信息 |
 | **T10** | ~1600ms | Observation | 返回 Jira 详情给 LLM |
 | **T11** | ~1800ms | **RAG 检索** | `ContentRetriever` 查询向量数据库 |
-| **T12** | ~1900ms | 向量检索 | PGVector 执行相似度搜索 |
+| **T12** | ~1900ms | 向量检索 | DuckDB 执行相似度搜索 |
 | **T13** | ~2100ms | 历史日报返回 | 返回 top-3 相似历史日报 |
 | **T14** | ~2500ms | **LLM 最终生成** | 综合所有信息，生成 Markdown 日报 |
 | **T15** | ~3000ms | 日报返回 | `DailyReportAgent` 返回最终答案 |
-| **T16** | ~3100ms | 持久化存储 | `PgVectorReportStore.save()` 开始 |
+| **T16** | ~3100ms | 持久化存储 | `EmbeddingStoreReportStore.save()` 开始 |
 | **T17** | ~3150ms | Embedding | AllMiniLmL6V2 将日报文本转为向量 |
-| **T18** | ~3200ms | 向量存储 | 写入 PGVector 数据库 |
-| **T19** | ~3250ms | 存储确认 | PGVector 返回存储成功 |
+| **T18** | ~3200ms | 向量存储 | 写入 DuckDB 嵌入式向量库 |
+| **T19** | ~3250ms | 存储确认 | DuckDB 返回存储成功 |
 | **T20** | ~3300ms | 结果返回 | 日报内容返回给 Shell |
 | **T21** | ~3350ms | 显示输出 | 用户看到生成的 Markdown 日报 |
 
@@ -744,7 +747,7 @@ sequenceDiagram
    └─ 本地执行 ~100-500ms (取决于仓库大小)
    
 4. 向量检索
-   └─ PGVector 查询 ~100-200ms
+   └─ DuckDB 查询 ~100-200ms
    
 5. 最终日报生成
    └─ LLM 生成长文本 ~500-1000ms
@@ -797,13 +800,10 @@ public DailyReportAgent dailyReportAgent(
 
 ```java
 @Bean
-public EmbeddingStore<TextSegment> embeddingStore(...) {
-    return PgVectorEmbeddingStore.builder()
-            .host("localhost")
-            .port(5432)
-            .table("report_embeddings")
+public EmbeddingStore<TextSegment> embeddingStore() {
+    return DuckDBEmbeddingStore.builder()
+            .filePath("./data/report_embeddings.duckdb")
             .dimension(384)       // AllMiniLmL6V2 维度
-            .createTable(true)
             .build();
 }
 ```

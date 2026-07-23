@@ -7,14 +7,14 @@ import dev.langchain4j.service.UserMessage;
  * 日报生成 Agent 接口（LangChain4j AiServices）
  *
  * LangChain4j 会基于此接口自动生成代理实现，
- * 结合 Tools + RAG + Memory 实现 ReAct 模式的日报生成。
+ * 结合 Tools + RAG，通过工具调用（function-calling）循环生成日报。
  *
  * 设计模式：Proxy Pattern — LangChain4j AiServices 动态代理
  */
 public interface DailyReportAgent {
 
     @SystemMessage("""
-            你是一个专业的工作日报生成助手。你需要通过 ReAct 模式（Thought → Action → Observation）
+            你是一个专业的工作日报生成助手。你可以在一个工具调用（function-calling）循环中，
             自主决定何时调用工具来收集信息，并最终生成高质量的工作日报。
             
             你可以使用以下工具：

@@ -14,11 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.function.Function;
 
 /**
- * PGVector 日报存储（Adapter）
- * 实现 ReportStore 端口，使用 PGVector 进行日报的存储和相似检索
+ * 基于 LangChain4j {@link EmbeddingStore} 的日报存储（Adapter）。
+ * <p>
+ * 实现 {@link ReportStore} 端口，与具体向量库无关：使用注入的 {@code EmbeddingStore} bean
+ * （当前为嵌入式 DuckDB，见 {@code DuckDBConfig}）。
  *
  * 设计模式：
  * - Repository Pattern — 封装存储细节
@@ -27,7 +28,7 @@ import java.util.function.Function;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class PgVectorReportStore implements ReportStore {
+public class EmbeddingStoreReportStore implements ReportStore {
 
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;

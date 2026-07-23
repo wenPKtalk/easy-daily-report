@@ -15,9 +15,9 @@ A **chat mode** sits on top, using a `SupervisorAgent` to classify user intent (
 | | |
 |---|---|
 | **Languages** | Java, SQL, YAML, Markdown, Gradle, Properties, Shell, Batch |
-| **Frameworks** | Spring Boot 4.0.6, Spring Shell 4.0.1, LangChain4j 1.13.1, JGit 7.2.0, PGVector (pg17), Lombok, JUnit, Docker Compose |
+| **Frameworks** | Spring Boot 4.0.6, Spring Shell 4.0.1, LangChain4j 1.13.1, JGit 7.2.0, embedded DuckDB (langchain4j-community-duckdb 1.0.0-beta5), embedded H2, Lombok, JUnit |
 | **JDK** | Java 21 |
-| **Persistence** | PostgreSQL + `pgvector` for RAG over historical reports; JSONB for chat session state |
+| **Persistence** | Embedded DuckDB for RAG over historical reports (single file `./data/report_embeddings.duckdb`); embedded H2 for chat session state (`./data/chat`). No database server, no Docker. |
 
 ## Architecture at a Glance
 
@@ -43,7 +43,7 @@ The codebase is organized as ten semantic layers. The inner four (Domain Core �
                                 │                            │
                                 │             ┌──────────────┴───────────┐
                                 └────────────►│ Infrastructure Adapters  │ JGit, Jira REST,
-                                              │                          │ pgvector, LC4j tools,
+                                              │                          │ DuckDB/H2, LC4j tools,
                                               │                          │ chat session repo
                                               └────────────┬─────────────┘
                                                            │
@@ -62,12 +62,12 @@ The codebase is organized as ten semantic layers. The inner four (Domain Core �
 2. **Application Strategies** (8 nodes) — `GenerateAgent` strategy interface, `GenerateReportUseCase` (single-agent ReAct), `MultiAgentOrchestrator` (parallel sub-agents), `AgentRouter`, and chat orchestration (`ChatOrchestrator`, `ChatSession`).
 3. **Agent Layer** (6 nodes) — LangChain4j `AiService` interfaces and supervisor types: `GitDiffAnalyzerAgent`, `JiraAnalyzerAgent`, `ReportGeneratorAgent`, plus `SupervisorAgent`, `Intent`, `SupervisorDecision`.
 4. **Domain Core** (8 nodes) — Pure domain records (`DailyReport`, `ReportRequest`, `CodeChange`, `JiraIssueInfo`) and port interfaces (`GitPort`, `JiraPort`, `ReportGenerator`, `ReportStore`) with zero external dependencies.
-5. **Infrastructure Adapters** (9 nodes) — Concrete adapters: `JGitAdapter`, `JiraRestAdapter`, `PgVectorReportStore`, `ChatSessionRepository`, `AgentReportGenerator`, `DailyReportAgent`, and the LangChain4j tool wrappers (`GitTool`, `JiraTool`, `SessionContextTool`).
-6. **Spring Configuration** (7 nodes) — `@Configuration` beans that wire the runtime: `LangChain4jConfig`, `MultiAgentConfig`, `SupervisorConfig`, `ChatModelConfig`, `PgVectorConfig`, `ShellConfig`, and `LlmProperties`.
-7. **Database Schema** (13 nodes) — pgvector init scripts and table definitions: `db/init/*.sql` plus an in-resources chat-tables migration, defining `report_embeddings`, `daily_reports`, `code_changes`, `chat_sessions`, `conversation_turns`.
+5. **Infrastructure Adapters** (9 nodes) — Concrete adapters: `JGitAdapter`, `JiraRestAdapter`, `EmbeddingStoreReportStore`, `ChatSessionRepository`, `AgentReportGenerator`, `DailyReportAgent`, and the LangChain4j tool wrappers (`GitTool`, `JiraTool`, `SessionContextTool`).
+6. **Spring Configuration** — `@Configuration` beans that wire the runtime: `LangChain4jConfig`, `MultiAgentConfig`, `SupervisorConfig`, `ChatModelConfig`, `DuckDBConfig`, `EmbeddingModelConfig`, `ShellConfig`, and `LlmProperties`.
+7. **Database Schema** — Embedded stores need no server: the DuckDB vector file `report_embeddings.duckdb` is auto-created by LangChain4j, and the H2 chat schema (`chat_sessions`, `conversation_turns`) is applied at startup from `src/main/resources/db/init-chat-tables.sql` via `spring.sql.init`.
 8. **Test Suite** (8 nodes) — JUnit unit and contract tests mirroring the main package layout.
-9. **Build & Infrastructure** (13 nodes) — Gradle files, wrapper scripts (`gradlew`, `run.sh`, `run.bat`, `db/migrate.sh`), Docker Compose for pgvector, environment templates, and Spring `application.yaml`.
-10. **Documentation** (9 nodes) — `README.md`, `CLAUDE.md`, `HELP.md`, the `docs/` guides, and `db/README.md`.
+9. **Build & Infrastructure** — Gradle files, wrapper scripts (`gradlew`, `run.sh`, `run.bat`), environment templates, and Spring `application.yaml`.
+10. **Documentation** — `README.md`, `CLAUDE.md`, `HELP.md`, and the `docs/` guides.
 
 ## Key Concepts
 
@@ -80,22 +80,22 @@ A single-method interface (`generate(ReportRequest) → DailyReport`) is the cen
 `AgentLevel` enum (`SINGLE`, `SAMPLE_MULTIPLE`, `COORDINATOR_AGENT`) is the most depended-upon enum in the project — 11 files key off it. `AgentRouter` holds the selection logic.
 
 ### 2. Hexagonal Ports & Adapters
-The domain layer declares **what it needs** (`GitPort`, `JiraPort`, `ReportGenerator`, `ReportStore`); infrastructure declares **how it talks to the world** (`JGitAdapter`, `JiraRestAdapter`, `AgentReportGenerator`, `PgVectorReportStore`). JGit / `HttpClient` / pgvector types never appear above the infrastructure boundary.
+The domain layer declares **what it needs** (`GitPort`, `JiraPort`, `ReportGenerator`, `ReportStore`); infrastructure declares **how it talks to the world** (`JGitAdapter`, `JiraRestAdapter`, `AgentReportGenerator`, `EmbeddingStoreReportStore`). JGit / `HttpClient` / DuckDB types never appear above the infrastructure boundary.
 
 ### 3. LangChain4j `AiServices` as Java Interfaces
 Every agent — `DailyReportAgent`, the three sub-agents, and `SupervisorAgent` — is a plain Java interface with a `@SystemMessage` annotation. LangChain4j dynamically proxies them in `LangChain4jConfig` / `MultiAgentConfig` / `SupervisorConfig` via `AiServices.builder()`, attaching the chat model, tools (`@Tool`-annotated Spring components), and a `MessageWindowChatMemory`.
 
-### 4. RAG with pgvector
-`PgVectorReportStore` embeds each generated report with `AllMiniLm-L6-v2` (384-dim) and stores it in `report_embeddings`. The single-agent path uses `EmbeddingStoreContentRetriever` so every new report run can semantically pull in similar past reports — each report becomes context for the next.
+### 4. RAG with embedded DuckDB
+`EmbeddingStoreReportStore` embeds each generated report with `AllMiniLm-L6-v2` (384-dim) and stores it in the embedded DuckDB vector store (single file `./data/report_embeddings.duckdb`, no server). The single-agent path uses `EmbeddingStoreContentRetriever` so every new report run can semantically pull in similar past reports — each report becomes context for the next.
 
 ### 5. Chat Mode with Supervisor Routing
-`ChatOrchestrator` asks `SupervisorAgent` to classify a message into a `SupervisorDecision` (intent + optional extracted params or clarification). `ChatSession` is an **immutable aggregate root** (copy-on-write mutators `withMode` / `appendTurn` / `updateContext`), persisted by `ChatSessionRepository` using upserts with an explicit `?::jsonb` cast for the JSONB context column. A `MODE_SWITCH` intent can be promoted to a manual override flag on the session.
+`ChatOrchestrator` asks `SupervisorAgent` to classify a message into a `SupervisorDecision` (intent + optional extracted params or clarification). `ChatSession` is an **immutable aggregate root** (copy-on-write mutators `withMode` / `appendTurn` / `updateContext`), persisted by `ChatSessionRepository` to embedded H2 using `MERGE INTO ... KEY(session_id)` upserts (context stored as a plain `VARCHAR` column). A `MODE_SWITCH` intent can be promoted to a manual override flag on the session.
 
 ### 6. Provider-Agnostic LLM Config
 `ChatModelConfig` reads `LlmProperties` (a `@ConfigurationProperties` record) and dispatches to either an OpenAI-compatible provider (ZhipuAI, OpenAI) or Ollama based on the `LLM_PROVIDER` env var.
 
 ### 7. `.env` Auto-Load via `spring-dotenv`
-No manual `export` needed — `run.sh` (and `EasyDailyReportApplication` startup) loads `.env` for you. Required keys: `OPENAI_API_KEY` plus PGVector/Jira/Git settings (see `.env.example`).
+No manual `export` needed — `run.sh` (and `EasyDailyReportApplication` startup) loads `.env` for you. Required key: `OPENAI_API_KEY` (plus optional Jira/Git settings — see `.env.example`). Storage is fully embedded (DuckDB + H2 under `./data/`), so no database or Docker env is needed.
 
 ## Guided Tour (10 Steps)
 
@@ -140,14 +140,13 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 ### Step 9 — Chat Mode: Supervisor Routing & Session State
 - `ChatOrchestrator` — asks `SupervisorAgent` for an `Intent`, mutates session context via `SessionContextTool`, dispatches to a direct/clarification/routed response.
 - `ChatSession` — immutable aggregate root holding `AgentLevel` + override flag, context map, and conversation history.
-- `ChatSessionRepository` — JDBC upsert on `chat_sessions` with `?::jsonb` cast for the JSONB column; appends the latest turn to `conversation_turns`.
+- `ChatSessionRepository` — JDBC `MERGE INTO ... KEY(session_id)` upsert on `chat_sessions` (H2), context stored in a `VARCHAR` column; appends the latest turn to `conversation_turns`.
 - `SupervisorConfig` — wires `SupervisorAgent` with `SessionContextTool`, `GitTool`, and a 20-message `MessageWindowChatMemory`.
 
 ### Step 10 — Persistence & RAG: Closing the Loop
-- `PgVectorReportStore` embeds each new `DailyReport` (384-dim All-MiniLM-L6-v2) and writes it to `report_embeddings` (auto-created by LangChain4j).
-- `daily_reports` stores the raw markdown plus extracted fields and provenance.
-- `chat_sessions` / `conversation_turns` persist chat state.
-- `docker-compose.yml` stands up `pgvector/pgvector:pg17` with the init scripts mounted.
+- `EmbeddingStoreReportStore` embeds each new `DailyReport` (384-dim All-MiniLM-L6-v2) and writes it to the embedded DuckDB vector store (single file `./data/report_embeddings.duckdb`, auto-created by LangChain4j).
+- `chat_sessions` / `conversation_turns` persist chat state in embedded H2 (`./data/chat`).
+- No database server or Docker: DuckDB and H2 run in-process against single files under `./data/`.
 - Every report becomes RAG context for the next run via `ContentRetriever`.
 
 ## File Map (by Layer)
@@ -201,10 +200,10 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 | `infrastructure/ai/tools/GitTool.java` | simple | `@Tool` methods wrapping `GitPort` for ReAct tool-calling. |
 | `infrastructure/ai/tools/JiraTool.java` | simple | `@Tool` `getJiraIssue(issueKey)` wrapping `JiraPort`. |
 | `infrastructure/ai/tools/SessionContextTool.java` | simple | `@Tool` exposing `ChatSession` to the supervisor via a ThreadLocal-style holder. |
-| `infrastructure/chat/ChatSessionRepository.java` | moderate | JDBC repo — upsert on `chat_sessions` with `?::jsonb` cast; appends turn rows. |
+| `infrastructure/chat/ChatSessionRepository.java` | moderate | JDBC repo (H2) — `MERGE INTO ... KEY(session_id)` upsert on `chat_sessions`, context in a `VARCHAR` column; appends turn rows. |
 | `infrastructure/git/JGitAdapter.java` | moderate | `GitPort` impl via JGit. |
 | `infrastructure/jira/JiraRestAdapter.java` | moderate | `JiraPort` impl via Java `HttpClient` against Jira REST v2. |
-| `infrastructure/rag/PgVectorReportStore.java` | moderate | `ReportStore` impl using LangChain4j `EmbeddingStore<TextSegment>` on pgvector. |
+| `infrastructure/rag/EmbeddingStoreReportStore.java` | moderate | `ReportStore` impl using LangChain4j `EmbeddingStore<TextSegment>` on embedded DuckDB. |
 
 ### Spring Configuration
 | File | Complexity | What it does |
@@ -212,7 +211,8 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 | `infrastructure/config/ChatModelConfig.java` | moderate | Wires the `ChatModel` bean — OpenAI-compatible vs. Ollama based on `LlmProperties`. |
 | `infrastructure/config/LangChain4jConfig.java` | moderate | Assembles the single-agent: `ChatModel`, memory, `EmbeddingStoreContentRetriever` (RAG), `GitTool`, `JiraTool` → `DailyReportAgent`. |
 | `infrastructure/config/MultiAgentConfig.java` | moderate | Builds the three multi-agent sub-agents via `AiServices.builder()`. |
-| `infrastructure/config/PgVectorConfig.java` | moderate | `AllMiniLm-L6-v2` `EmbeddingModel` + pgvector `EmbeddingStore<TextSegment>`. |
+| `infrastructure/config/DuckDBConfig.java` | moderate | Embedded DuckDB `EmbeddingStore<TextSegment>` bean (single file `./data/report_embeddings.duckdb`, no server). |
+| `infrastructure/config/EmbeddingModelConfig.java` | simple | `AllMiniLm-L6-v2` (384-dim) `EmbeddingModel` bean. |
 | `infrastructure/config/SupervisorConfig.java` | simple | Builds `SupervisorAgent` bean with `SessionContextTool`, `GitTool`, and a 20-message `MessageWindowChatMemory`. |
 | `infrastructure/config/ShellConfig.java` | simple | Custom Spring Shell prompt + shared Jackson `ObjectMapper`. |
 | `infrastructure/config/properties/LlmProperties.java` | moderate | `@ConfigurationProperties` record binding `llm.*`; `Provider` enum: `OPENAI_COMPATIBLE`, `OLLAMA`. |
@@ -220,21 +220,18 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 ### Database Schema
 | File | Complexity | What it does |
 |---|---|---|
-| `db/init/01-init-database.sql` | simple | Enables `pgvector` and `pgcrypto` extensions; runs via `docker-entrypoint-initdb.d`. |
-| `db/init/02-create-tables.sql` | moderate | `daily_reports`, `code_changes`, an `updated_at` trigger; documents (commented) `report_embeddings`. |
-| `db/init/03-create-chat-tables.sql` | simple | `chat_sessions` (with JSONB `context_json`) and `conversation_turns`. |
-| `src/main/resources/db/init-chat-tables.sql` | simple | Jar-bundled mirror of the chat tables schema. |
+| `src/main/resources/db/init-chat-tables.sql` | simple | H2-dialect chat schema — `chat_sessions` (`context_json` as `VARCHAR`, `BIGINT AUTO_INCREMENT`) and `conversation_turns`; applied at startup via `spring.sql.init`. |
+
+The DuckDB vector store (`report_embeddings.duckdb`) is auto-created by LangChain4j on first write — no init SQL.
 
 ### Build & Infrastructure
 | File | Complexity | What it does |
 |---|---|---|
-| `run.sh` | **complex** | Unix launcher — banner, Java check, `.env` load, config validation, pgvector readiness probe, optional build, `bootJar` launch. |
+| `run.sh` | **complex** | Unix launcher — banner, Java check, `.env` load, config validation, optional build, `bootJar` launch. |
 | `run.bat` | moderate | Windows equivalent of `run.sh`. |
-| `build.gradle` | moderate | Java 21 toolchain + all framework dependencies. |
-| `docker-compose.yml` | simple | `pgvector/pgvector:pg17` container; mounts `db/init`. |
-| `db/migrate.sh` | moderate | Manual schema bootstrap script. |
-| `.env.example` | moderate | LLM provider/key, PGVector, Jira, Git env template. |
-| `src/main/resources/application.yaml` | moderate | Main Spring config — datasource, llm, langchain4j, pgvector, jira, git, logging. |
+| `build.gradle` | moderate | Java 21 toolchain + all framework dependencies (`langchain4j-community-duckdb`, H2). |
+| `.env.example` | moderate | LLM provider/key, Jira, Git env template. |
+| `src/main/resources/application.yaml` | moderate | Main Spring config — H2 datasource, `spring.sql.init`, llm, langchain4j, jira, git, logging. |
 | `src/test/resources/application.yaml` | simple | Test profile — H2 in-memory + stubbed externals. |
 
 ### Test Suite
@@ -246,7 +243,7 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 | `application/chat/ChatSessionTest.java` | moderate | Immutable mutator semantics: `withMode`, `appendTurn`, `updateContext`, `contextAsString`. |
 | `agent/supervisor/SupervisorAgentContractTest.java` | simple | Guards `SupervisorDecision` shape and `Intent` enum membership. |
 | `infrastructure/ai/tools/SessionContextToolTest.java` | moderate | `getContext`, `updateContext`, `getUpdatedSession` with/without bound session. |
-| `infrastructure/chat/ChatSessionRepositoryTest.java` | moderate | Upsert SQL shape, `?::jsonb` cast verification, `Optional.empty` on no active session. |
+| `infrastructure/chat/ChatSessionRepositoryTest.java` | moderate | `MERGE INTO` upsert SQL shape, `Optional.empty` on no active session. |
 | `shell/ChatCommandsTest.java` | moderate | `/mode single|multi|auto`, `/clear`, `isBuiltinCommand`. |
 
 ### Documentation
@@ -259,7 +256,6 @@ The LLM tools (`GitTool`, `JiraTool`) wrap these adapters indirectly through the
 | `docs/single_vs_sample_multiple_agent.md` | moderate | Side-by-side comparison and migration guide. |
 | `docs/technical-documentation.md` | **complex** | Primary technical reference — DDD layering, domain model details, RAG. |
 | `docs/troubleshooting.md` | moderate | Runbook for three recurring startup/test failures. |
-| `db/README.md` | moderate | pgvector setup, manual init steps, schema descriptions, troubleshooting. |
 
 ## Complexity Hotspots — Approach with Care
 
@@ -269,24 +265,23 @@ These files concentrate the most logic. Skim the high-level docs above first, th
 |---|---|
 | `shell/ChatCommands.java` | JLine read-loop, eight slash builtins, per-turn persistence, mode-override flow. Touch with tests. |
 | `application/usecase/MultiAgentOrchestrator.java` | Concurrency via `CompletableFuture.supplyAsync`, error propagation across futures, JSON contract between three agents. |
-| `run.sh` | Several preflight checks (Java version, env, pgvector readiness) before `bootJar` — easy to break startup. |
+| `run.sh` | Several preflight checks (Java version, env) before `bootJar` — easy to break startup. |
 | `README.md` / `docs/how-it-works.md` / `docs/sample_multiple_sub_agent.md` / `docs/technical-documentation.md` | Long-form architecture docs — change with code, keep diagrams aligned. |
 
 ## Quick-Start Checklist (For Your First Day)
 
 1. **Read** `README.md` → `CLAUDE.md` → `docs/how-it-works.md` (≈ 30 min).
-2. **Copy** `.env.example` → `.env` and fill in `OPENAI_API_KEY` (plus Jira / Git settings if you'll exercise those).
-3. **Start pgvector**: `docker compose up -d`.
-4. **Run**: `./run.sh` (use `-b` to force a Gradle rebuild).
-5. **Try the CLI**: `report generate-today` for the single-agent path; `chat` to explore the supervisor-routed mode.
-6. **Read the guided tour** above with your IDE open — open each file as you go.
-7. **Run the tests**: `./gradlew test` — start with `AgentRouterTest`, `ChatSessionTest`, `SupervisorAgentContractTest` for fast feedback on the strategy + chat surface.
-8. **Pick a small change** to wire muscle memory — e.g. add a new `/mode` alias in `ChatCommands`, or a new `Intent` value end-to-end.
+2. **Copy** `.env.example` → `.env` and fill in `OPENAI_API_KEY` (plus Jira / Git settings if you'll exercise those). No database or Docker to set up — DuckDB and H2 are embedded and auto-create their files under `./data/`.
+3. **Run**: `./run.sh` (use `-b` to force a Gradle rebuild).
+4. **Try the CLI**: `report generate-today` for the single-agent path; `chat` to explore the supervisor-routed mode.
+5. **Read the guided tour** above with your IDE open — open each file as you go.
+6. **Run the tests**: `./gradlew test` — start with `AgentRouterTest`, `ChatSessionTest`, `SupervisorAgentContractTest` for fast feedback on the strategy + chat surface.
+7. **Pick a small change** to wire muscle memory — e.g. add a new `/mode` alias in `ChatCommands`, or a new `Intent` value end-to-end.
 
 ## Where to Go Next
 
 - **For deeper architecture**: `docs/technical-documentation.md`, `docs/how-it-works.md`
 - **For strategy design rationale**: `docs/single_vs_sample_multiple_agent.md`, `docs/sample_multiple_sub_agent.md`
-- **For ops issues**: `docs/troubleshooting.md`, `db/README.md`
+- **For ops issues**: `docs/troubleshooting.md`
 - **For an interactive view**: run `/understand-anything:understand-dashboard` to explore the 192-node graph visually.
 - **For deep dives on a specific file or symbol**: `/understand-anything:understand-explain <path-or-symbol>`.

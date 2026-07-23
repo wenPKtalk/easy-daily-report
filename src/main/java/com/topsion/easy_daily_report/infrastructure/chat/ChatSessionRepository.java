@@ -33,7 +33,7 @@ public class ChatSessionRepository {
                created_at, last_active_at
         FROM chat_sessions
         WHERE user_id = ?
-          AND last_active_at > NOW() - (? * INTERVAL '1 hour')
+          AND last_active_at > DATEADD('HOUR', ?, CURRENT_TIMESTAMP)
         ORDER BY last_active_at DESC
         LIMIT 1
         """;
@@ -41,19 +41,14 @@ public class ChatSessionRepository {
     public void save(ChatSession session) {
         String contextJson = toJson(session.context());
 
-        // context_json is JSONB; the JDBC driver sends Strings as VARCHAR,
-        // and PostgreSQL refuses the implicit varchar→jsonb conversion.
-        // The ?::jsonb cast is load-bearing — do not remove.
+        // H2 MERGE ... KEY(session_id) 按主键做 upsert；context_json 为 VARCHAR，直接绑 String。
+        // （createdAt / userId 在更新时被重设为传入值，但这些值对同一会话恒定，无副作用。）
         jdbcTemplate.update(
             """
-            INSERT INTO chat_sessions
+            MERGE INTO chat_sessions
                 (session_id, user_id, current_mode, mode_overridden, context_json, created_at, last_active_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?)
-            ON CONFLICT (session_id) DO UPDATE SET
-                current_mode    = EXCLUDED.current_mode,
-                mode_overridden = EXCLUDED.mode_overridden,
-                context_json    = EXCLUDED.context_json,
-                last_active_at  = EXCLUDED.last_active_at
+            KEY(session_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             session.sessionId(),
             session.userId(),
@@ -73,7 +68,7 @@ public class ChatSessionRepository {
                 FIND_ACTIVE_SESSION_SQL,
                 sessionRowMapper(),
                 userId,
-                SESSION_ACTIVE_HOURS
+                -SESSION_ACTIVE_HOURS
             );
             return Optional.ofNullable(session);
         } catch (EmptyResultDataAccessException e) {

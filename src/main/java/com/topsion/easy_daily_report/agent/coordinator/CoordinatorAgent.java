@@ -7,20 +7,20 @@ import dev.langchain4j.service.V;
 /**
  * COORDINATOR_AGENT 模式的 Master Agent。
  * <p>
- * 通过 ReAct 循环动态调度 {@code SubAgentDelegationTool} 暴露的 4 个工具：
+ * 通过工具调用（function-calling）循环动态调度 {@code SubAgentDelegationTool} 暴露的 4 个工具：
  * <ul>
  *   <li>{@code analyzeGitChanges} — 代码变更分析</li>
  *   <li>{@code analyzeJiraIssue} — 业务需求分析</li>
  *   <li>{@code retrieveSimilarReports} — 历史日报检索（RAG）</li>
  *   <li>{@code composeFinalReport} — 最终 Markdown 日报生成</li>
  * </ul>
- * 与 SAMPLE_MULTIPLE 的本质差异：调用顺序、是否使用 RAG、是否跳过某步骤，
- * 全部由 LLM 在 ReAct 循环中自行决定，而非 Java 层固定编排。
+ * 与 SAMPLE_MULTIPLE 的本质差异：调用哪些工具、是否使用 RAG、是否跳过某分析步骤由 LLM 依输入决定；
+ * 调用顺序则受数据依赖约束（先分析后合成）。整体由 LLM 在运行时驱动，而非 Java 层固定编排。
  */
 public interface CoordinatorAgent {
 
     @SystemMessage("""
-            你是日报生成系统的协调者（Master Agent），负责通过 ReAct 模式调度专业工具完成工作日报生成。
+            你是日报生成系统的协调者（Master Agent），负责在工具调用（function-calling）循环中调度专业工具完成工作日报生成。
 
             可用工具：
             1. analyzeGitChanges(commitHash) — 分析 Git 代码变更，返回 JSON 技术分析

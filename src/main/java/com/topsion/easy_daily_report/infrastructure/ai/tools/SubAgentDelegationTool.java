@@ -3,6 +3,7 @@ package com.topsion.easy_daily_report.infrastructure.ai.tools;
 import com.topsion.easy_daily_report.agent.subagents.GitDiffAnalyzerAgent;
 import com.topsion.easy_daily_report.agent.subagents.JiraAnalyzerAgent;
 import com.topsion.easy_daily_report.agent.subagents.ReportGeneratorAgent;
+import com.topsion.easy_daily_report.agent.subagents.ReportPromptBuilder;
 import com.topsion.easy_daily_report.domain.port.ReportStore;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -91,29 +92,13 @@ public class SubAgentDelegationTool {
     ) {
         log.info("[Coordinator/Tool] composeFinalReport todayDate={}, historyLen={}",
                 todayDate, historicalContext == null ? 0 : historicalContext.length());
-        String prompt = buildReportPrompt(historicalContext);
-        return reportGeneratorAgent.generate(
-                prompt,
-                nullSafe(gitAnalysisJson),
-                nullSafe(jiraAnalysisJson),
-                nullSafe(todayDate)
+        String userMessage = ReportPromptBuilder.build(
+                todayDate,
+                gitAnalysisJson,
+                jiraAnalysisJson,
+                historicalContext
         );
-    }
-
-    private static String buildReportPrompt(String historicalContext) {
-        if (historicalContext == null || historicalContext.isBlank()) {
-            return "请基于提供的 Git 与 Jira 分析结果生成结构化工作日报。";
-        }
-        return """
-                请基于提供的 Git 与 Jira 分析结果生成结构化工作日报。
-
-                可参考的历史相似日报片段（仅供风格与模式参考，不要直接抄录）：
-                %s
-                """.formatted(historicalContext);
-    }
-
-    private static String nullSafe(String value) {
-        return value == null ? "" : value;
+        return reportGeneratorAgent.generate(userMessage);
     }
 
     private static String errorGitAnalysis(String errorMessage) {

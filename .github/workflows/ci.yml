@@ -1,0 +1,31 @@
+name: CI
+
+# 确定性测试全绿且不依赖任何密钥/外部服务（唯一的 @SpringBootTest 已 @MockitoBean 掉 ChatModel 与 EmbeddingStore；
+# 向量库走嵌入式 DuckDB，无需 Postgres）。因此无需在 CI 配置任何 secret。
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Run test suite
+        run: ./gradlew test --no-daemon --console=plain
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test
+          if-no-files-found: ignore

@@ -1,18 +1,19 @@
+-- 嵌入式 H2 建表脚本（chat/session 持久化）；由 spring.sql.init 在启动时幂等执行。
 CREATE TABLE IF NOT EXISTS chat_sessions (
     session_id      VARCHAR(36) PRIMARY KEY,
     user_id         VARCHAR(255),
     current_mode    VARCHAR(50),
     mode_overridden BOOLEAN DEFAULT FALSE,
-    context_json    JSONB,
+    context_json    VARCHAR,
     created_at      TIMESTAMP,
     last_active_at  TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS conversation_turns (
-    id          BIGSERIAL PRIMARY KEY,
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     session_id  VARCHAR(36) REFERENCES chat_sessions(session_id),
     role        VARCHAR(20),
-    content     TEXT,
+    content     VARCHAR,
     created_at  TIMESTAMP
 );
 
