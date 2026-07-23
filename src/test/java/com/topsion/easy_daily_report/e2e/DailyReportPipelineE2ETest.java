@@ -17,7 +17,7 @@ import com.topsion.easy_daily_report.infrastructure.rag.EmbeddingStoreReportStor
 import dev.langchain4j.community.store.embedding.duckdb.DuckDBEmbeddingStore;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.bgesmallzhv15.BgeSmallZhV15EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +82,7 @@ class DailyReportPipelineE2ETest {
     @BeforeAll
     static void loadModel() {
         // 本地 ONNX 模型，加载一次（重）
-        embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+        embeddingModel = new BgeSmallZhV15EmbeddingModel();
     }
 
     @BeforeEach

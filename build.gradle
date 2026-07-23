@@ -51,8 +51,8 @@ dependencies {
 	// LangChain4j Ollama - 支持本地模型
 	implementation 'dev.langchain4j:langchain4j-ollama'
 
-	// 本地 embedding 模型（由 LangChain4j BOM 管理 beta 版本）
-	implementation 'dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2'
+	// 本地 embedding 模型：BGE small 中文 v1.5（512 维，中文语料，进程内 ONNX，BOM 管理）
+	implementation 'dev.langchain4j:langchain4j-embeddings-bge-small-zh-v15'
 
 	// 嵌入式向量存储：DuckDB（进程内、单文件持久化，无需任何数据库服务器）
 	// 社区模块独立发布线，不由 langchain4j-bom:1.13.1 管理 —— 显式 pin 版本

@@ -11,6 +11,7 @@ import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,6 +33,10 @@ public class EmbeddingStoreReportStore implements ReportStore {
 
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;
+
+    /** 最低余弦相似度阈值：低于此分数的历史日报视为不相关，不注入（避免"塞坏文档"）。可调。 */
+    @Value("${rag.min-score:0.5}")
+    private double minScore;
 
     @Override
     public void save(DailyReport report) {
@@ -57,6 +62,7 @@ public class EmbeddingStoreReportStore implements ReportStore {
         EmbeddingSearchRequest embeddingSearchRequest = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .maxResults(maxResults)
+                .minScore(minScore)
                 .build();
         List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(embeddingSearchRequest).matches();
         return matches.stream()

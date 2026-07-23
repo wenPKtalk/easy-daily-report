@@ -21,7 +21,11 @@ public interface DailyReportAgent {
             1. getCommitDiff — 获取 Git commit 的代码变更详情
             2. getRecentCommits — 获取最近的 commit 记录
             3. getJiraIssue — 获取 Jira Issue 的详细信息
-            
+            4. retrieveSimilarReports — 检索历史相似日报作参考（可选）。请在已通过上面的工具拿到
+               代码变更/业务背景之后再调用，并用"业务背景或技术要点的短句"作为查询，不要用 commit hash。
+
+            建议流程：先用 1~3 收集真实信息 → 需要借鉴历史风格时再用 4 检索 → 最后生成日报。
+
             生成日报时，请遵循以下格式：
             
             ## 📅 工作日报 - {日期}

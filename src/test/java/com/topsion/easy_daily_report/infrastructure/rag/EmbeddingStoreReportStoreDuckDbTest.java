@@ -4,7 +4,7 @@ import com.topsion.easy_daily_report.domain.model.DailyReport;
 import dev.langchain4j.community.store.embedding.duckdb.DuckDBEmbeddingStore;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.bgesmallzhv15.BgeSmallZhV15EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ class EmbeddingStoreReportStoreDuckDbTest {
     @Test
     @DisplayName("saves a report to a file-backed DuckDB store and retrieves it by semantic similarity")
     void saveAndSearch_roundTrips(@TempDir Path tmp) {
-        EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+        EmbeddingModel embeddingModel = new BgeSmallZhV15EmbeddingModel();
         EmbeddingStore<TextSegment> store = DuckDBEmbeddingStore.builder()
                 .filePath(tmp.resolve("reports.duckdb").toString())
                 .tableName("report_embeddings")
