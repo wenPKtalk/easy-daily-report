@@ -15,10 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -189,9 +187,9 @@ class SubAgentDelegationToolTest {
     class ComposeFinalReport {
 
         @Test
-        @DisplayName("delegates to ReportGeneratorAgent with prompt containing historical context")
-        void includesHistoricalContext() {
-            when(reportGeneratorAgent.generate(anyString(), anyString(), anyString(), anyString()))
+        @DisplayName("delegates to ReportGeneratorAgent with a message carrying the analyses + date + history")
+        void includesAnalysesAndHistoricalContext() {
+            when(reportGeneratorAgent.generate(anyString()))
                     .thenReturn("# Final Markdown");
 
             String result = tool.composeFinalReport(
@@ -202,34 +200,37 @@ class SubAgentDelegationToolTest {
             );
 
             assertThat(result).isEqualTo("# Final Markdown");
+            // C1 regression guard: the analysis JSON MUST actually reach the model.
             verify(reportGeneratorAgent).generate(
-                    org.mockito.ArgumentMatchers.argThat(p -> p.contains("history-snippet")),
-                    eq("{\"git\":1}"),
-                    eq("{\"jira\":1}"),
-                    eq("2026-05-28")
+                    org.mockito.ArgumentMatchers.argThat(msg ->
+                            msg.contains("{\"git\":1}")
+                                    && msg.contains("{\"jira\":1}")
+                                    && msg.contains("2026-05-28")
+                                    && msg.contains("history-snippet"))
             );
         }
 
         @Test
-        @DisplayName("uses concise prompt when historical context is blank")
-        void blankHistoricalContext_concisePrompt() {
-            when(reportGeneratorAgent.generate(anyString(), any(), any(), any()))
+        @DisplayName("omits the historical-context section when it is blank")
+        void blankHistoricalContext_omitsHistorySection() {
+            when(reportGeneratorAgent.generate(anyString()))
                     .thenReturn("# Final");
 
-            tool.composeFinalReport("{}", "{}", "  ", "2026-05-28");
+            tool.composeFinalReport("{\"git\":1}", "{\"jira\":1}", "  ", "2026-05-28");
 
             verify(reportGeneratorAgent).generate(
-                    org.mockito.ArgumentMatchers.argThat(p -> !p.contains("历史相似日报")),
-                    eq("{}"),
-                    eq("{}"),
-                    eq("2026-05-28")
+                    org.mockito.ArgumentMatchers.argThat(msg ->
+                            !msg.contains("历史相似日报")
+                                    && msg.contains("{\"git\":1}")
+                                    && msg.contains("{\"jira\":1}")
+                                    && msg.contains("2026-05-28"))
             );
         }
 
         @Test
         @DisplayName("propagates ReportGeneratorAgent exceptions (terminal step is not fail-soft)")
         void generatorThrows_propagates() {
-            when(reportGeneratorAgent.generate(anyString(), any(), any(), any()))
+            when(reportGeneratorAgent.generate(anyString()))
                     .thenThrow(new RuntimeException("generator boom"));
 
             org.assertj.core.api.Assertions

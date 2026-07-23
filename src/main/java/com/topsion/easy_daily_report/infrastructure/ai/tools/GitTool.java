@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * Git 工具（LangChain4j @Tool）
- * 供 ReAct Agent 自主调用，获取 Git 信息
+ * 供 Agent 在工具调用循环中自主调用，获取 Git 信息
  *
  * 设计模式：Adapter + Facade — 将 GitPort 封装为 Agent 可调用的 Tool
  */

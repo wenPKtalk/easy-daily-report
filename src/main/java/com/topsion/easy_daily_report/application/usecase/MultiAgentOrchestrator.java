@@ -3,8 +3,10 @@ package com.topsion.easy_daily_report.application.usecase;
 import com.topsion.easy_daily_report.agent.subagents.GitDiffAnalyzerAgent;
 import com.topsion.easy_daily_report.agent.subagents.JiraAnalyzerAgent;
 import com.topsion.easy_daily_report.agent.subagents.ReportGeneratorAgent;
+import com.topsion.easy_daily_report.agent.subagents.ReportPromptBuilder;
 import com.topsion.easy_daily_report.domain.model.DailyReport;
 import com.topsion.easy_daily_report.domain.model.ReportRequest;
+import com.topsion.easy_daily_report.domain.port.ReportStore;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.GitTool;
 import com.topsion.easy_daily_report.infrastructure.ai.tools.JiraTool;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +26,16 @@ public class MultiAgentOrchestrator implements GenerateAgent{
     private final ReportGeneratorAgent reportGeneratorAgent;
     private final GitTool gitTool;
     private final JiraTool jiraTool;
+    private final ReportStore reportStore;
 
     @Override
     public DailyReport execute(ReportRequest request){
         String commitHash = request.commitHash();
         String jiraIssueKey = request.jiraIssueKey();
         String result = this.generateReport(commitHash, jiraIssueKey);
-        return DailyReport.fromMarkdown(result);
+        DailyReport report = DailyReport.fromMarkdown(result);
+        reportStore.save(report);
+        return report;
     }
 
     /**
@@ -61,21 +66,18 @@ public class MultiAgentOrchestrator implements GenerateAgent{
             log.debug("Git Analysis: {}", gitAnalysisJson);
             log.debug("Jira Analysis: {}", jiraAnalysisJson);
 
-            // 步骤3: 生成最终日报
+            // 步骤3: 生成最终日报（把两份分析 JSON 与日期显式拼进 user message，
+            //         避免历史上 @V 无占位符被静默丢弃的问题）
             String todayDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
-            String prompt = String.format(
-                    "请基于以下分析结果生成工作日报。Jira Key: %s, Commit: %s",
-                    jiraKey,
-                    commitHash
-            );
-
-            String finalReport = reportGeneratorAgent.generate(
-                    prompt,
+            String userMessage = ReportPromptBuilder.build(
+                    todayDate,
                     gitAnalysisJson,
                     jiraAnalysisJson,
-                    todayDate
+                    null
             );
+
+            String finalReport = reportGeneratorAgent.generate(userMessage);
 
             log.info("日报生成成功，长度: {} 字符", finalReport.length());
             return finalReport;

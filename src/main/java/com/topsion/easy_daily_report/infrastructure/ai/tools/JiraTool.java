@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Jira 工具（LangChain4j @Tool）
- * 供 ReAct Agent 自主调用，获取 Jira Issue 信息
+ * 供 Agent 在工具调用循环中自主调用，获取 Jira Issue 信息
  *
  * 设计模式：Adapter + Facade — 将 JiraPort 封装为 Agent 可调用的 Tool
  */
