@@ -1,9 +1,10 @@
 spring:
   application:
     name: easy-daily-report
+  # 关闭 Spring Shell 自带 REPL —— 顶层交互由自研 SlashShell（支持 /斜杠命令 + TAB 菜单）接管
   shell:
     interactive:
-      enabled: true
+      enabled: false
   # chat/session 持久化：嵌入式 H2，单文件在 ./data/，无需任何数据库服务器
   datasource:
     url: jdbc:h2:file:${CHAT_DB_PATH:./data/chat};DB_CLOSE_DELAY=-1

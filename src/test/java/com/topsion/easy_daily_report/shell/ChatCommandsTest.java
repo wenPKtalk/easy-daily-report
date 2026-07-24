@@ -4,14 +4,12 @@ import com.topsion.easy_daily_report.application.chat.ChatOrchestrator;
 import com.topsion.easy_daily_report.application.chat.ChatSession;
 import com.topsion.easy_daily_report.application.usecase.AgentLevel;
 import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
-import org.jline.reader.LineReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,14 +23,13 @@ class ChatCommandsTest {
 
     @Mock private ChatOrchestrator chatOrchestrator;
     @Mock private ChatSessionRepository sessionRepository;
-    @Mock private ObjectProvider<LineReader> lineReaderProvider;
 
     private ChatCommands chatCommands;
     private ChatSession session;
 
     @BeforeEach
     void setUp() {
-        chatCommands = new ChatCommands(chatOrchestrator, sessionRepository, lineReaderProvider);
+        chatCommands = new ChatCommands(chatOrchestrator, sessionRepository);
         session = new ChatSession(
             UUID.randomUUID().toString(), "user@test.com",
             AgentLevel.SINGLE, false,

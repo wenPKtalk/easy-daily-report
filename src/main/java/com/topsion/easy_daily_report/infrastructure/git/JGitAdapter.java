@@ -16,13 +16,22 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * JGit 适配器（Adapter）
@@ -125,8 +134,14 @@ public class JGitAdapter implements GitPort {
 
                 log.info("获取今天的提交: {} 至 {}", startOfDay, startOfTomorrow);
 
-                // 遍历所有提交，筛选今天内的
-                Iterable<RevCommit> commits = git.log().call();
+                // 遍历所有提交，筛选今天内的（空仓库 / 无 HEAD 时优雅返回空）
+                Iterable<RevCommit> commits;
+                try {
+                    commits = git.log().call();
+                } catch (org.eclipse.jgit.api.errors.NoHeadException e) {
+                    log.warn("仓库无 HEAD（空仓库 / 无提交），返回空: {}", repositoryPath);
+                    return List.of();
+                }
                 List<CodeChange> changes = new ArrayList<>();
 
                 for (RevCommit commit : commits) {
@@ -145,12 +160,65 @@ public class JGitAdapter implements GitPort {
         }
     }
 
+    /** 递归查找 rootPath 下的所有 Git 仓库；跳过软连接、已访问目录与噪音目录，找到仓库后不深入。 */
+    @Override
+    public List<String> findGitRepositories(String rootPath) {
+        Path root = new File(rootPath == null || rootPath.isBlank() ? "." : rootPath).getAbsoluteFile().toPath();
+        List<String> repos = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        // 深度大 / 无关的目录直接跳过（性能 + 避免把 vendored 仓库当独立仓库）
+        Set<String> skip = Set.of(".git", "node_modules", "target", "build", ".gradle", ".idea",
+                "dist", "out", "vendor", ".venv", "venv", "__pycache__");
+        try {
+            // EnumSet.noneOf → 不跟随软连接
+            Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE,
+                    new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                            try {
+                                if (Files.isSymbolicLink(dir)) {
+                                    return FileVisitResult.SKIP_SUBTREE;               // 跳过软连接（避免环）
+                                }
+                                if (!visited.add(dir.toRealPath().toString())) {
+                                    return FileVisitResult.SKIP_SUBTREE;               // 已遍历过（canonical 去重）
+                                }
+                                if (skip.contains(dir.getFileName() == null ? "" : dir.getFileName().toString())) {
+                                    return FileVisitResult.SKIP_SUBTREE;               // 噪音目录
+                                }
+                                if (Files.isDirectory(dir.resolve(".git"))) {
+                                    repos.add(dir.toString());
+                                    return FileVisitResult.SKIP_SUBTREE;               // 找到仓库，不再深入其子树
+                                }
+                            } catch (IOException e) {
+                                return FileVisitResult.SKIP_SUBTREE;
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override
+                        public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                            return FileVisitResult.CONTINUE;                            // 权限等问题跳过，不中断
+                        }
+                    });
+        } catch (IOException e) {
+            log.warn("扫描 Git 仓库失败: {}", root, e);
+        }
+        log.info("在 {} 下发现 {} 个 Git 仓库", root, repos.size());
+        return repos;
+    }
+
     private Repository openRepository(String path) throws IOException {
-        return new FileRepositoryBuilder()
-                .setGitDir(new File(path, ".git"))
-                .readEnvironment()
-                .findGitDir()
-                .build();
+        File start = new File(path == null || path.isBlank() ? "." : path).getAbsoluteFile();
+        FileRepositoryBuilder builder = new FileRepositoryBuilder()
+                .findGitDir(start)          // 从 path 向上查找 .git，稳健定位仓库
+                .readEnvironment();
+        // 必须在 build() 之前判空：findGitDir 没找到时 build() 会抛 "must call setGitDir/setWorkTree"
+        if (builder.getGitDir() == null) {
+            throw new IOException(start.getPath() + " 不是 Git 仓库（未找到 .git）。"
+                    + "若它是包含多个仓库的父目录，请用 /generate-today（会自动扫描子仓库）；"
+                    + "若要分析单个 commit，请把 GIT_REPO_PATH 或 -p 指向具体仓库。");
+        }
+        return builder.build();
     }
 
     private CodeChange toCodeChange(RevCommit commit, String diff) {

@@ -7,8 +7,6 @@ import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.jline.reader.LineReader;
 import org.jline.reader.UserInterruptException;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -23,33 +21,16 @@ public class ChatCommands {
 
     private final ChatOrchestrator chatOrchestrator;
     private final ChatSessionRepository sessionRepository;
-    private final ObjectProvider<LineReader> lineReaderProvider;
 
     public ChatCommands(
             ChatOrchestrator chatOrchestrator,
-            ChatSessionRepository sessionRepository,
-            ObjectProvider<LineReader> lineReaderProvider) {
+            ChatSessionRepository sessionRepository) {
         this.chatOrchestrator = chatOrchestrator;
         this.sessionRepository = sessionRepository;
-        this.lineReaderProvider = lineReaderProvider;
     }
 
-    @Command(value = "chat")
-    public void chat() {
-        startChatLoop(null);
-    }
-
-    @Command(value = "@chat")
-    public void atChat() {
-        startChatLoop(null);
-    }
-
-    void startChatLoop(AgentLevel forcedMode) {
-        LineReader lineReader = lineReaderProvider.getIfAvailable();
-        if (lineReader == null) {
-            throw new IllegalStateException("LineReader is not available in this environment");
-        }
-
+    /** 进入多轮对话模式；复用调用方（SlashShell）传入的 LineReader。 */
+    void startChatLoop(AgentLevel forcedMode, LineReader lineReader) {
         String userId = System.getProperty("user.name", "unknown");
         ChatSession session = resolveSession(userId, forcedMode);
         printWelcomeBanner(session);

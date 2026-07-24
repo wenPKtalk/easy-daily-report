@@ -2,6 +2,7 @@ package com.topsion.easy_daily_report.infrastructure.config;
 
 import com.topsion.easy_daily_report.agent.subagents.GitDiffAnalyzerAgent;
 import com.topsion.easy_daily_report.agent.subagents.JiraAnalyzerAgent;
+import com.topsion.easy_daily_report.agent.subagents.MultiRepoReportAgent;
 import com.topsion.easy_daily_report.agent.subagents.ReportGeneratorAgent;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
@@ -43,6 +44,13 @@ public class MultiAgentConfig {
         log.info("初始化 ReportGeneratorAgent");
 
         return AiServices.builder(ReportGeneratorAgent.class)
+                .chatModel(chatModel)
+                .build();
+    }
+
+    @Bean
+    public MultiRepoReportAgent multiRepoReportAgent(ChatModel chatModel) {
+        return AiServices.builder(MultiRepoReportAgent.class)
                 .chatModel(chatModel)
                 .build();
     }
