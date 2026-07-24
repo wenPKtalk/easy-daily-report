@@ -91,3 +91,11 @@ dependencyManagement {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// 打印运行期 classpath —— 供 run.sh 以「exploded classpath」方式运行（java -cp ... MainClass）。
+// 规避 Spring Boot 嵌套 fat-jar 里 jline 原生库无法加载 → 退化 dumb 终端 → 无 TAB 补全 的问题。
+tasks.register('printRuntimeClasspath') {
+	doLast {
+		println sourceSets.main.runtimeClasspath.asPath
+	}
+}

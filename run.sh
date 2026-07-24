@@ -90,14 +90,11 @@ check_config() {
     fi
 }
 
-# 构建项目（如果需要）
-build_if_needed() {
-    local jar_file="$SCRIPT_DIR/build/libs/easy-daily-report-0.0.1-SNAPSHOT.jar"
-    if [ ! -f "$jar_file" ]; then
-        info "首次运行，需要构建项目..."
-        ./gradlew bootJar -x test --quiet
-        success "构建完成: $jar_file"
-    fi
+# 构建项目（每次都 clean 重新编译；用 exploded classpath 运行，无需打 fat-jar）
+build_project() {
+    info "clean 重新编译中（每次运行都全新构建）..."
+    ./gradlew clean classes -x test --quiet
+    success "编译完成"
 }
 
 # 运行应用
@@ -107,8 +104,14 @@ run_app() {
     info "按 Ctrl+C 停止应用"
     echo ""
 
-    # 直接运行 JAR（保持前台交互，Spring Shell 才能正常工作）
-    java -jar "$SCRIPT_DIR/build/libs/easy-daily-report-0.0.1-SNAPSHOT.jar"
+    # 以 exploded classpath 方式运行（非 fat-jar）——让 jline 从真实 jar 加载原生库，TAB 补全才可用。
+    # exec 让 java 直接接管前台 TTY（jline 正常工作的前提）。
+    local cp
+    cp=$(./gradlew -q printRuntimeClasspath | tail -1)
+    if [ -z "$cp" ]; then
+        error "获取 classpath 失败"; exit 1
+    fi
+    exec java -cp "$cp" com.topsion.easy_daily_report.EasyDailyReportApplication
 }
 
 # 显示帮助
@@ -171,14 +174,8 @@ main() {
         check_config
     fi
 
-    # 构建项目
-    if [ "$force_build" = true ]; then
-        info "强制重新构建..."
-        ./gradlew clean bootJar -x test --quiet
-        success "构建完成"
-    else
-        build_if_needed
-    fi
+    # 构建项目（每次都 clean 重新打包）
+    build_project
 
     # 运行应用
     run_app
