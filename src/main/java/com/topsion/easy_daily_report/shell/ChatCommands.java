@@ -5,8 +5,6 @@ import com.topsion.easy_daily_report.application.chat.ChatSession;
 import com.topsion.easy_daily_report.application.usecase.AgentLevel;
 import com.topsion.easy_daily_report.infrastructure.chat.ChatSessionRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.jline.reader.LineReader;
-import org.jline.reader.UserInterruptException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -29,22 +27,19 @@ public class ChatCommands {
         this.sessionRepository = sessionRepository;
     }
 
-    /** 进入多轮对话模式；复用调用方（SlashShell）传入的 LineReader。 */
-    void startChatLoop(AgentLevel forcedMode, LineReader lineReader) {
+    /** 进入多轮对话模式；复用调用方（SlashShell）传入的 LineInput。 */
+    void startChatLoop(AgentLevel forcedMode, LineInput lineInput) {
         String userId = System.getProperty("user.name", "unknown");
         ChatSession session = resolveSession(userId, forcedMode);
         printWelcomeBanner(session);
 
         while (true) {
-            String input;
-            try {
-                input = lineReader.readLine("you> ");
-            } catch (UserInterruptException e) {
+            String input = lineInput.readLine("you> ");
+            if (input == null) {            // Ctrl+D / EOF：退出 chat 并保存
                 saveAndExit(session);
                 return;
             }
-
-            if (input == null || input.isBlank()) continue;
+            if (input.isBlank()) continue;
 
             if (isBuiltinCommand(input)) {
                 if (input.trim().equals("/exit")) {

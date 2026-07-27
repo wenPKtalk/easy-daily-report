@@ -61,6 +61,9 @@ dependencies {
 	// Git operations
 	implementation 'org.eclipse.jgit:org.eclipse.jgit:7.2.0.202503040940-r'
 
+	// Lanterna（纯 Java 终端 TUI，无原生依赖）—— 替代 jline 解决 fat-jar/环境下无 TAB 补全
+	implementation 'com.googlecode.lanterna:lanterna:3.1.2'
+
 	// H2（嵌入式关系库，用于 chat/session 持久化；单文件，无需服务器）
 	runtimeOnly 'com.h2database:h2'
 
